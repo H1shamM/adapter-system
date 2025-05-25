@@ -1,0 +1,30 @@
+version: "3.9"
+
+services:
+  rabbitmq:
+    image: rabbitmq:latest
+    ports:
+      - "5672:5672"
+      - "15672:15672"  # RabbitMQ Management UI
+
+  mongo:
+    image: mongo:latest
+    command: mongod --shardsvr --replSet rs0
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  fastapi:
+    build: .
+    ports:
+      - "8001:8001"
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017
+      - RABBITMQ_URI=amqp://rabbitmq:5672
+    depends_on:
+      - rabbitmq
+      - mongo
+
+volumes:
+  mongo_data:
