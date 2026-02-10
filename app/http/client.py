@@ -4,9 +4,10 @@ from urllib.parse import urlparse, parse_qs
 
 import requests
 from prometheus_client import Counter, Gauge
-from pydantic import BaseModel
-from requests.exceptions import HTTPError, Timeout
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from pydantic import BaseModel, Field
+from requests.exceptions import HTTPError
+
+from app.adapters.registry import AuthType
 
 # Metrics setup
 REQUEST_COUNTER = Counter(
@@ -25,11 +26,12 @@ RATE_LIMIT_GAUGE = Gauge(
 class HttpClientConfig(BaseModel):
     """Configuration for an HTTP client"""
     base_url: str
-    auth_type: str  # bearer, aws_sigv4, api_key, none
-    auth_config: Dict[str, Any]
+    auth_type: AuthType = "none"
+    auth_config: Dict[str, Any] = Field(default_factory=dict)
+
     default_timeout: int = 30
     max_retries: int = 3
-    retry_wait: int = 5  # seconds
+    retry_wait: int = 5
 
 
 class AssetHttpClient:
@@ -37,6 +39,7 @@ class AssetHttpClient:
         self.config = config
         self.adapter_name = adapter_name
         self.session = requests.Session()
+        self._setup_auth()
 
     def _setup_auth(self):
         """Configure authentication based on type"""
@@ -60,54 +63,49 @@ class AssetHttpClient:
             header = self.config.auth_config.get("header", "X-API-KEY")
             self.session.headers[header] = key
 
-    @retry(
-        stop=stop_after_attempt(lambda c: c.max_retries),
-        wait=wait_exponential(multiplier=1, max=60),
-        retry=(
-                retry_if_exception_type(Timeout) |
-                retry_if_exception_type(HTTPError)
-        )
-    )
     def request(self, method: str, path: str, **kwargs) -> requests.Response:
         """Core request method with retry logic"""
         full_url = f"{self.config.base_url}{path}"
 
         # Set default timeout
         kwargs.setdefault("timeout", self.config.default_timeout)
+        for attempt in range(self.config.max_retries):
+            try:
+                response = self.session.request(method, full_url, **kwargs)
+                response.raise_for_status()
+                # Track metrics
+                REQUEST_COUNTER.labels(
+                    adapter=self.adapter_name,
+                    method=method.upper(),
+                    status="success"
+                ).inc()
 
-        try:
-            response = self.session.request(method, full_url, **kwargs)
-            response.raise_for_status()
+                # Track rate limits
+                if 'X-RateLimit-Remaining' in response.headers:
+                    RATE_LIMIT_GAUGE.labels(adapter=self.adapter_name).set(
+                        int(response.headers['X-RateLimit-Remaining'])
+                    )
 
-            # Track metrics
-            REQUEST_COUNTER.labels(
-                adapter=self.adapter_name,
-                method=method.upper(),
-                status="success"
-            ).inc()
+                return response
 
-            # Track rate limits
-            if 'X-RateLimit-Remaining' in response.headers:
-                RATE_LIMIT_GAUGE.labels(adapter=self.adapter_name).set(
-                    int(response.headers['X-RateLimit-Remaining'])
-                )
+            except HTTPError as e:
+                status_code = e.response.status_code
+                REQUEST_COUNTER.labels(
+                    adapter=self.adapter_name,
+                    method=method.upper(),
+                    status=f"error_{status_code}"
+                ).inc()
 
-            return response
+                if status_code in (401, 403):
+                    raise
 
-        except HTTPError as e:
-            status = str(e.response.status_code)
-            REQUEST_COUNTER.labels(
-                adapter=self.adapter_name,
-                method=method.upper(),
-                status=f"error_{status}"
-            ).inc()
-
-            # Handle rate limits
-            if e.response.status_code == 429:
-                retry_after = e.response.headers.get('Retry-After', 60)
-                time.sleep(int(retry_after))
-
-            raise
+                if attempt == self.config.max_retries - 1:
+                    raise
+                # Handle rate limits
+                # if e.response.status_code == 429:
+                #     retry_after = e.response.headers.get('Retry-After', 60)
+                #     time.sleep(int(retry_after))
+                time.sleep(self.config.retry_wait)
 
     # Convenience methods
     def get(self, path: str, **kwargs) -> requests.Response:
@@ -136,6 +134,7 @@ class AssetHttpClient:
         url: Optional[str] = None
 
         while current_page <= max_pages:
+
             if url:
                 parsed = urlparse(url)
                 path = parsed.path
@@ -156,6 +155,8 @@ class AssetHttpClient:
                 page_size
             )
 
+
+
             # Custom next page handler
             if get_next_page:
                 next_info = get_next_page(response)
@@ -164,9 +165,16 @@ class AssetHttpClient:
                 url = next_info.get('url')
                 next_params = next_info.get('params', {})
                 continue
+
             # Stop if no more pages
             if not next_page_params:
                 break
+
+
+            if pagination == 'link_header':
+                next_params = next_page_params
+                current_page += 1
+                continue
 
             # Prepare the next request
             if pagination == 'page_number':
@@ -176,7 +184,7 @@ class AssetHttpClient:
                 next_params['offset'] = len(results)
 
             url = None  # Reset URL for param-based pagination
-            
+
         return results
 
     def _get_next_page_params(
