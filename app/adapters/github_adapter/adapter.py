@@ -1,28 +1,43 @@
-import datetime
+from datetime import datetime
 from typing import List, Dict, Literal
-from app.adapters.base import BaseAdapter, AdapterConfig
-import requests
 
+import requests
+from pydantic import Field
+
+from app.adapters.base import BaseAdapter, AdapterConfig
+from app.adapters.errors import AuthenticationError
 from app.models.assets import NormalizedAsset
 
 
+class GitHubConfig(AdapterConfig):
+    """GitHub-specific configuration"""
+    repo: str = Field(..., min_length=1)
+
+    asset_types: List[str] = Field(
+        default_factory=lambda: ["issue", "pull_request"]
+    )
+
+
 class GitHubAdapter(BaseAdapter):
-    class GitHubConfig(AdapterConfig):
-        """GitHub-specific configuration"""
-        auth_type: Literal["bearer"] = "bearer"
-        asset_types: List[str] = ["issue", "pull_request"]
-        repo: str  # Additional GitHub-specific field
 
     def __init__(self, config: GitHubConfig):
         super().__init__(config)
 
-    def connect(self) -> bool:
-        response = self.session.get("https://api.github.com/user")
-        return response.status_code == 200
+    def connect(self):
+        try:
+            self.client.get(f"/repos/{self.config.repo}/issues")
+            return None
+        except requests.HTTPError as err:
+            if err.response.status_code == 401:
+                raise AuthenticationError("GitHub authentication failed") from err
+            raise
 
     def fetch_raw(self) -> List[Dict]:
-        return self.client.paginated_get(f"/repos/{self.config.repo}/issues")
-
+        return self.client.paginated_get(
+            f"/repos/{self.config.repo}/issues",
+            max_pages=5,
+            extract_data=lambda r: r
+        )
 
     def normalize(self, raw_data: List[Dict]) -> list[NormalizedAsset]:
         return [

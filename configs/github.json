@@ -1,0 +1,10 @@
+{
+  "name": "github",
+  "enabled": true,
+  "sync_interval": 3600,
+  "priority": "high",
+  "asset_types": ["issue", "pull_request"],
+  "base_url": "https://api.github.com",
+  "auth_type": "none",
+  "repo": "octocat/Hello-World"
+}
