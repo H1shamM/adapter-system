@@ -1,14 +1,18 @@
-import time
+import os
 
 from celery import Celery
-from app.adapters.factory import get_adapter
+
 from app.monitoring import metrics
-from app.storage.assets import AssetStore
+from app.services.sync_engine import run_adapter_sync
+from app.storage.sync_history import SyncHistoryStore
+
+broker = os.getenv("CELERY_BROKER_URL", "amqp://guest:guest@localhost:5672//")
+backend = os.getenv("CELERY_RESULT_BACKEND", "rpc://")
 
 app = Celery(
     'core',
-    broker='amqp://guest:guest@localhost:5672//',
-    backend='rpc://',
+    broker=broker,
+    backend=backend,
     # Add these critical configurations
     result_extended=True,
     task_track_started=True,
@@ -26,6 +30,7 @@ app.conf.task_routes = {
     'app.tasks.core.sync_adapter_task': {'queue': 'sync_queue'}
 }
 
+
 @app.task(
     bind=True,
     serializer='json',
@@ -33,30 +38,30 @@ app.conf.task_routes = {
     name='app.tasks.core.sync_adapter_task',  # Explicit name
     queue='sync_queue'  # Explicit queue
 )
-def sync_adapter_task(self, adapter_type: str, config: dict):
+def sync_adapter_task(self, adapter_type: str, config: dict, sync_id: str):
     """Main sync task with retry logic"""
-    start_time = time.time()
+    history = SyncHistoryStore()
+
     try:
-        adapter = get_adapter(adapter_type, config)
-        assets = adapter.execute()
 
-        store = AssetStore()
-        result = store.store_assets(assets)
+        result = run_adapter_sync(adapter_type, config)
 
-        metrics.SYNC_SUCCESS.labels(adapter_type=adapter_type).inc()
-        metrics.SYNC_DURATION.labels(adapter_type=adapter_type).set(time.time() - start_time)
+        history.finish_sync(
+            sync_id=sync_id,
+            status="SUCCESS",
+            result=result,
+        )
+        return result
 
-        for asset in assets:
-            metrics.ASSET_COUNT.labels(asset_type=asset.type).inc()
-
-        return {
-            "inserted": result.upserted_count,
-            "modified": result.modified_count,
-            "success": True
-        }
-
-    except Exception as e:
-        metrics.SYNC_ERRORS.labels(adapter_type=adapter_type).inc()
-        raise
     except ConnectionError as e:
         self.retry(exc=e, countdown=60)
+
+    except Exception as e:
+        history.finish_sync(
+            sync_id= sync_id,
+            status="FAILED",
+            error=str(e),
+        )
+
+        metrics.SYNC_ERRORS.labels(adapter_type=adapter_type).inc()
+        raise
