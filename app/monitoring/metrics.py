@@ -12,6 +12,11 @@ SYNC_DURATION = Gauge(
     ['adapter_type']
 )
 
+SYNC_ERRORS = Counter(
+    'asset_sync_error_total',
+    'Errors during the sync process',
+    ['adapter_type']
+)
 ASSET_COUNT = Gauge(
     'stored_assets_total',
     'Total assets per type',
