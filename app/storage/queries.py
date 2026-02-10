@@ -1,12 +1,12 @@
-from pymongo import MongoClient, DESCENDING
+from pymongo import DESCENDING
+
+from app.db.mongo import get_mongo_client
 
 
 class Queries:
     def __init__(self):
-        self.client = MongoClient("mongodb://localhost:27017")
+        self.client = get_mongo_client()
         self.db = self.client["asset_management"]
-
-
 
     def find_assets(self, query: dict):
         return list(
