@@ -1,16 +1,59 @@
-from fastapi import APIRouter, HTTPException
 from celery.result import AsyncResult
+from fastapi import APIRouter, Depends
+
+from app.api.deps import get_sync_history_store
+from app.api.errors import NotFoundException
+from app.api.schemas.syncs import SyncStatusResponse
+from app.storage.sync_history import SyncHistoryStore
 
 router = APIRouter()
 
-@router.get("/syncs/{task_id}")
+
+@router.get("/syncs/history")
+async def list_syncs(
+        adapter: str | None = None,
+        limit: int = 100,
+        store: SyncHistoryStore = Depends(get_sync_history_store),
+):
+    return store.list(adapter=adapter, limit=limit)
+
+
+@router.get("/syncs/{sync_id}")
+async def get_sync_history(sync_id: str, store: SyncHistoryStore = Depends(get_sync_history_store)):
+    sync = store.get(sync_id)
+    if not sync:
+        raise NotFoundException(f"Sync {sync_id} not found")
+    return sync
+
+
+@router.get("/syncs/{task_id}/status", response_model=SyncStatusResponse)
 async def get_sync_status(task_id: str):
     task = AsyncResult(task_id)
-    if not task:
-        raise HTTPException(404, detail="Task not found")
-    return {
-        "task_id": task_id,
-        "status": task.state,
-        "result": task.result if task.ready() else None,
-        "ready": task.ready()
-    }
+
+    if task.state == "PENDING":
+        return SyncStatusResponse(
+            task_id=task_id,
+            status="PENDING",
+            ready=False,
+        )
+
+    if task.state == "FAILURE":
+        return SyncStatusResponse(
+            task_id=task_id,
+            status="FAILURE",
+            ready=False,
+        )
+
+    if task.state == "SUCCESS":
+        return SyncStatusResponse(
+            task_id=task_id,
+            status="SUCCESS",
+            ready=True,
+            result=task.result,
+        )
+
+    return SyncStatusResponse(
+        task_id=task_id,
+        status=task.state,
+        ready=False,
+    )
