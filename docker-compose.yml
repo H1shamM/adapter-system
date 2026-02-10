@@ -3,28 +3,63 @@ version: "3.9"
 services:
   rabbitmq:
     image: rabbitmq:latest
+    container_name: adapter_rabbitmq
     ports:
       - "5672:5672"
       - "15672:15672"  # RabbitMQ Management UI
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "status" ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
 
   mongo:
     image: mongo:latest
-    command: mongod --shardsvr --replSet rs0
+    container_name: adapter_mongo
     ports:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
+    healthcheck:
+      test: [ "CMD", "mongo", "--eval", "db.adminCommand('ping')" ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
 
   fastapi:
     build: .
+    container_name: adapter_api
     ports:
-      - "8001:8001"
+      - "8000:8000"
+    env_file:
+      - .env
     environment:
-      - MONGODB_URI=mongodb://mongo:27017
-      - RABBITMQ_URI=amqp://rabbitmq:5672
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+      - MONGO_URL=${MONGO_URL}
     depends_on:
-      - rabbitmq
-      - mongo
+      rabbitmq:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build: .
+    container_name: adapter_worker
+    command: [ "sh", "-c", "celery -A app.tasks.core worker --loglevel=info -Q sync_queue --concurrency=1" ]
+    env_file:
+      - .env
+    environment:
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+      - MONGO_URL=${MONGO_URL}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   mongo_data:

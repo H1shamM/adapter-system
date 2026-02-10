@@ -1,0 +1,20 @@
+version: "3.9"
+
+services:
+  fastapi:
+    volumes:
+      - ./app:/app/app
+    command: > 
+      uvicorn app.api.main:app
+      --host 0.0.0.0 
+      --port 8000
+      --reload
+
+  worker:
+    volumes:
+      - ./app/:/app/app
+    command: >
+      celery -A app.tasks.core worker
+      --loglevel=info
+      -Q sync_queue
+      --concurrency=1

@@ -1,6 +1,5 @@
 fastapi>=0.110.0
 uvicorn>=0.29.0
-celery[redis]==5.3.6
 requests>=2.31.0
 tenacity>=8.2.3
 pydantic>=2.6.0
@@ -13,5 +12,3 @@ pytest~=8.3.5
 boto3~=1.37.26
 prometheus_client~=0.21.1
 starlette~=0.36.3
-prometheus_client~=0.21.1
-prometheus_client~=0.21.1
