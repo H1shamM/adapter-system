@@ -1,0 +1,10 @@
+{
+    "name": "jsonplaceholder",
+    "enabled": true,
+    "sync_interval": 3600,
+    "priority": "medium",
+    "asset_types": ["user"],
+    "base_url": "https://jsonplaceholder.typicode.com",
+    "auth_type": "none",
+    "auth_config": {}
+}
