@@ -13,7 +13,7 @@ class NormalizedAsset(BaseModel):
     vendor: str
     metadata: dict = {}
 
+
     @classmethod
     def from_raw(cls, raw: dict):
-        """Optional factory method for adapters"""
         return cls(**raw)
