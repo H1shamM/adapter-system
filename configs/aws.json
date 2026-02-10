@@ -1,0 +1,22 @@
+{
+  "name": "aws",
+  "enabled": true,
+  "sync_interval": 3600,
+  "priority": "high",
+  "asset_types": [
+    "ec2",
+    "s3",
+    "iam"
+  ],
+  "base_url": "https://aws.amazon.com",
+  "auth_type": "aws",
+  "auth_config": {
+    "access_key_env": "AWS_ACCESS_KEY_ID",
+    "secret_key_env": "AWS_SECRET_ACCESS_KEY",
+    "region": "us-east-1"
+  },
+  "services": [
+    "ec2",
+    "s3"
+  ]
+}

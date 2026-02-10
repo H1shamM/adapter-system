@@ -1,9 +1,7 @@
 from typing import Dict, List
-
 import boto3
-from app.adapters.base import BaseAdapter, AdapterConfig
-from pydantic import SecretStr
 
+from app.adapters.base import BaseAdapter, AdapterConfig
 
 class AWSConfig(AdapterConfig):
     """AWS-specific configuration"""
@@ -17,6 +15,7 @@ class AWSConfig(AdapterConfig):
 
 class AWSAdapter(BaseAdapter):
     HTTP_CONFIG_CLASS = AWSConfig
+
     def __init__(self, config: AWSConfig):
         super().__init__(config)
         self.session = boto3.Session(
