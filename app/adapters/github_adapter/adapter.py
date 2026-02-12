@@ -23,17 +23,17 @@ class GitHubAdapter(BaseAdapter):
     def __init__(self, config: GitHubConfig):
         super().__init__(config)
 
-    def connect(self):
+    async def connect(self):
         try:
-            self.client.get(f"/repos/{self.config.repo}/issues")
+            await self.client.get(f"/repos/{self.config.repo}/issues")
             return None
         except requests.HTTPError as err:
             if err.response.status_code == 401:
                 raise AuthenticationError("GitHub authentication failed") from err
             raise
 
-    def fetch_raw(self) -> List[Dict]:
-        return self.client.paginated_get(
+    async def fetch_raw(self) -> List[Dict]:
+        return await self.client.paginated_get(
             f"/repos/{self.config.repo}/issues",
             max_pages=5,
             extract_data=lambda r: r

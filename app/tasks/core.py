@@ -1,3 +1,4 @@
+import asyncio
 import os
 
 from celery import Celery
@@ -44,7 +45,7 @@ def sync_adapter_task(self, adapter_type: str, config: dict, sync_id: str):
 
     try:
 
-        result = run_adapter_sync(adapter_type, config)
+        result = asyncio.run(run_adapter_sync(adapter_type, config))
 
         history.finish_sync(
             sync_id=sync_id,

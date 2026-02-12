@@ -1,4 +1,3 @@
-import json
 import time
 
 from app.adapters.factory import build_adapter
@@ -6,7 +5,7 @@ from app.monitoring import metrics
 from app.storage.assets import AssetStore
 
 
-def run_adapter_sync(adapter_type: str, config: dict):
+async def run_adapter_sync(adapter_type: str, config: dict):
     """"
     Run adapter ingestion synchronously.
     This is the core orchestration logic shared by Celery and CLI.
@@ -14,7 +13,7 @@ def run_adapter_sync(adapter_type: str, config: dict):
     start_time = time.time()
 
     adapter = build_adapter(adapter_type, config)
-    assets = adapter.execute()
+    assets = await adapter.execute()
 
     store = AssetStore()
     print(f"DEBUG assets len {len(assets)}")

@@ -9,12 +9,12 @@ from app.models.assets import NormalizedAsset
 class JSONPlaceholderAdapter(BaseAdapter):
     adapter_type = "jsonplaceholder"
 
-    def connect(self):
-        self.client.get('/users', params={"_limit": 1})
+    async def connect(self):
+        await self.client.get('/users', params={"_limit": 1})
 
-    def fetch_raw(self) -> List[Dict]:
+    async def fetch_raw(self) -> List[Dict]:
         try:
-            users = self.client.get('/users').json()
+            users = await self.client.get('/users').json()
             return users
         except Exception as e:
             raise FetchError("JSONPlaceholderAdapter fetch failed") from e

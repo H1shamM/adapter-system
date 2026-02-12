@@ -9,16 +9,16 @@ class RandomUserAdapter(BaseAdapter):
 
     adapter_type = 'RandomUserAdapter'
 
-    def connect(self):
+    async def connect(self):
         try:
-            self.client.get("", params={'results': 1})
+            await self.client.get("", params={'results': 1})
         except Exception as e:
             raise AuthenticationError("RandomUser connect failed") from e
 
-    def fetch_raw(self) -> List[Dict]:
+    async def fetch_raw(self) -> List[Dict]:
 
         try:
-            users = self.client.paginated_get(
+            users = await self.client.paginated_get(
                 path="",
                 params={
                     "results": 50,
