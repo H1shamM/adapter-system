@@ -1,11 +1,10 @@
-import time
+import asyncio
 from typing import Optional, Dict, Any, Callable, List
 from urllib.parse import urlparse, parse_qs
 
-import requests
+import httpx
 from prometheus_client import Counter, Gauge
 from pydantic import BaseModel, Field
-from requests.exceptions import HTTPError
 
 from app.adapters.registry import AuthType
 
@@ -33,12 +32,23 @@ class HttpClientConfig(BaseModel):
     max_retries: int = 3
     retry_wait: int = 5
 
+    max_connections: int = 100
+    max_keepalive_connections: int = 20
+
 
 class AssetHttpClient:
     def __init__(self, config: HttpClientConfig, adapter_name: str):
         self.config = config
         self.adapter_name = adapter_name
-        self.session = requests.Session()
+        self.client = httpx.AsyncClient(
+            base_url=config.base_url,
+            timeout= httpx.Timeout(
+                connect=5,
+                read= config.default_timeout,
+                write= 10,
+                pool= 5
+            )
+        )
         self._setup_auth()
 
     def _setup_auth(self):
@@ -47,11 +57,11 @@ class AssetHttpClient:
 
         if auth_type == "bearer":
             token = self.config.auth_config.get("token")
-            self.session.headers["Authorization"] = f"Bearer {token}"
+            self.client.headers["Authorization"] = f"Bearer {token}"
 
         elif auth_type == "aws_sigv4":
             from requests_aws4auth import AWS4Auth
-            self.session.auth = AWS4Auth(
+            self.client.auth = AWS4Auth(
                 self.config.auth_config["access_key"],
                 self.config.auth_config["secret_key"],
                 self.config.auth_config["region"],
@@ -61,9 +71,9 @@ class AssetHttpClient:
         elif auth_type == "api_key":
             key = self.config.auth_config["key"]
             header = self.config.auth_config.get("header", "X-API-KEY")
-            self.session.headers[header] = key
+            self.client.headers[header] = key
 
-    def request(self, method: str, path: str, **kwargs) -> requests.Response:
+    async def request(self, method: str, path: str, **kwargs) -> httpx.Response:
         """Core request method with retry logic"""
         full_url = f"{self.config.base_url}{path}"
 
@@ -71,7 +81,7 @@ class AssetHttpClient:
         kwargs.setdefault("timeout", self.config.default_timeout)
         for attempt in range(self.config.max_retries):
             try:
-                response = self.session.request(method, full_url, **kwargs)
+                response = self.client.request(method, full_url, **kwargs)
                 response.raise_for_status()
                 # Track metrics
                 REQUEST_COUNTER.labels(
@@ -88,7 +98,7 @@ class AssetHttpClient:
 
                 return response
 
-            except HTTPError as e:
+            except httpx.HTTPError as e:
                 status_code = e.response.status_code
                 REQUEST_COUNTER.labels(
                     adapter=self.adapter_name,
@@ -101,20 +111,23 @@ class AssetHttpClient:
 
                 if attempt == self.config.max_retries - 1:
                     raise
-                # Handle rate limits
-                # if e.response.status_code == 429:
-                #     retry_after = e.response.headers.get('Retry-After', 60)
-                #     time.sleep(int(retry_after))
-                time.sleep(self.config.retry_wait)
+
+                await asyncio.sleep(self.config.retry_wait)
+
+            except httpx.RequestError:
+                if attempt == self.config.max_retries - 1:
+                    raise
+                await asyncio.sleep(self.config.retry_wait)
+
 
     # Convenience methods
-    def get(self, path: str, **kwargs) -> requests.Response:
-        return self.request("GET", path, **kwargs)
+    async def get(self, path: str, **kwargs):
+        return await self.request("GET", path, **kwargs)
 
-    def post(self, path: str, **kwargs) -> requests.Response:
-        return self.request("POST", path, **kwargs)
+    async def post(self, path: str, **kwargs):
+        return await self.request("POST", path, **kwargs)
 
-    def paginated_get(
+    async def paginated_get(
             self,
             path: str,
             params: Optional[Dict] = None,
@@ -122,7 +135,7 @@ class AssetHttpClient:
             page_size: int = 100,
             max_pages: int = 100,
             extract_data: Callable[[Dict], List] = lambda r: r['items'],
-            get_next_page: Optional[Callable[[requests.Response], Optional[Dict]]] = None
+            get_next_page: Optional[Callable[[httpx.Response], Optional[Dict]]] = None
     ) -> List[Dict]:
         """
         Fetch paginated resources automatically
@@ -139,9 +152,9 @@ class AssetHttpClient:
                 parsed = urlparse(url)
                 path = parsed.path
                 next_params = parse_qs(parsed.query)
-                response = self.get(path, params=next_params)
+                response = await self.get(path, params=next_params)
             else:
-                response = self.get(path, params=next_params)
+                response = await self.get(path, params=next_params)
 
             # Extract data using provided function
             page_data = extract_data(response.json())
@@ -189,7 +202,7 @@ class AssetHttpClient:
 
     def _get_next_page_params(
             self,
-            response: requests.Response,
+            response: httpx.Response,
             strategy: str,
             current_page: int,
             page_size: int
@@ -218,3 +231,15 @@ class AssetHttpClient:
             return {'offset': content.get('offset', 0) + page_size}
 
         return None
+
+    async def close(self):
+        await self.client.aclose()
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        await self.close()
+
+
+

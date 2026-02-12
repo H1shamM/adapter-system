@@ -33,12 +33,12 @@ class BaseAdapter(ABC):
         return self.http_client
 
     @abstractmethod
-    def connect(self):
+    async def connect(self):
         """Test credentials/connection"""
         pass
 
     @abstractmethod
-    def fetch_raw(self) -> List[Dict]:
+    async def fetch_raw(self) -> List[Dict]:
         """Get raw vendor data"""
         pass
 
@@ -47,11 +47,11 @@ class BaseAdapter(ABC):
         """Convert to unified schema"""
         pass
 
-    def execute(self) -> List[NormalizedAsset]:
+    async def execute(self) -> List[NormalizedAsset]:
         """Full execution flow"""
         try:
-            self.connect()
-            raw_data = self.fetch_raw()
+            await self.connect()
+            raw_data = await self.fetch_raw()
             return self.normalize(raw_data)
         except AuthenticationError:
             raise
@@ -59,3 +59,7 @@ class BaseAdapter(ABC):
             raise FetchError(
                 f"{self.config.name}: execution failed"
             ) from e
+
+    async def close(self):
+        """Close connection"""
+        await self.client.close()

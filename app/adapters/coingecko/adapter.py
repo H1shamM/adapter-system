@@ -13,12 +13,12 @@ class CoinGeckoAdapter(BaseAdapter):
         super().__init__(config)
         self.currency = getattr(self.config,"currency","usd")
 
-    def connect(self):
-        self.client.get('/ping')
+    async def connect(self):
+        await self.client.get('/ping')
 
-    def fetch_raw(self) -> List[Dict]:
+    async def fetch_raw(self) -> List[Dict]:
         try:
-            data = self.client.get(
+            data = await self.client.get(
                 f"/api/v3/coins/markets?vs_currency={self.currency}&order=market_cap_desc"
             ).json()
 

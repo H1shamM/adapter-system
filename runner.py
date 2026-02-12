@@ -1,4 +1,5 @@
 import argparse
+import asyncio
 import json
 import logging
 import sys
@@ -72,10 +73,10 @@ def main():
 
     try:
 
-        result = run_adapter_sync(
+        result = asyncio.run(run_adapter_sync(
             adapter_type=adapter_name,
             config=config
-        )
+        ))
 
     except AuthenticationError as e:
         logger.error(f"Authentication error {e}")
