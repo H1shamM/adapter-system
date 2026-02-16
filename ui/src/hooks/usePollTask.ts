@@ -17,7 +17,7 @@ export function usePollTask(taskId: string | null) {
         if (!taskId) return
 
         const interval = setInterval(async () => {
-            const res = await api.get(`/api/v1/syncs/${taskId}`)
+            const res = await api.get(`/syncs/${taskId}`)
 
             setTask(res.data)
         },2000)
