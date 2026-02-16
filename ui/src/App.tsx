@@ -2,6 +2,7 @@ import {useEffect, useState} from 'react'
 import {AdapterCard} from "./components/AdapterCard.tsx"
 import {AssetList} from "./components/AssetList.tsx";
 import {getAdapters} from "./api/adapters.ts";
+import SyncMonitor from "./pages/SyncMonitor.tsx";
 
 function App() {
     const [adapters, setAdapters] = useState([])
@@ -31,6 +32,8 @@ function App() {
                 ))}
 
             </div>
+
+            <SyncMonitor/>
 
             <AssetList/>
         </div>
