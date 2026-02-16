@@ -6,6 +6,7 @@ import httpx
 from prometheus_client import Counter, Gauge
 from pydantic import BaseModel, Field
 
+from httpx_aws_auth import AwsSigV4Auth
 from app.adapters.registry import AuthType
 
 # Metrics setup
@@ -60,12 +61,11 @@ class AssetHttpClient:
             self.client.headers["Authorization"] = f"Bearer {token}"
 
         elif auth_type == "aws_sigv4":
-            from requests_aws4auth import AWS4Auth
-            self.client.auth = AWS4Auth(
+            self.client.auth = AwsSigV4Auth(
                 self.config.auth_config["access_key"],
                 self.config.auth_config["secret_key"],
                 self.config.auth_config["region"],
-                "execute-api"  # Service name for AWS APIs
+                service="execute-api"  # Service name for AWS APIs
             )
 
         elif auth_type == "api_key":
@@ -81,7 +81,7 @@ class AssetHttpClient:
         kwargs.setdefault("timeout", self.config.default_timeout)
         for attempt in range(self.config.max_retries):
             try:
-                response = self.client.request(method, full_url, **kwargs)
+                response = await self.client.request(method, full_url, **kwargs)
                 response.raise_for_status()
                 # Track metrics
                 REQUEST_COUNTER.labels(
@@ -98,7 +98,7 @@ class AssetHttpClient:
 
                 return response
 
-            except httpx.HTTPError as e:
+            except httpx.HTTPStatusError as e:
                 status_code = e.response.status_code
                 REQUEST_COUNTER.labels(
                     adapter=self.adapter_name,

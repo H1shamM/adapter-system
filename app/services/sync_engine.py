@@ -21,12 +21,13 @@ async def run_adapter_sync(adapter_type: str, config: dict):
     result = store.store_assets(assets)
 
     metrics.SYNC_SUCCESS.labels(adapter_type=adapter_type).inc()
-    metrics.SYNC_DURATION.labels(adapter_type=adapter_type).set(time.time() - start_time)
+    metrics.SYNC_DURATION.labels(adapter_type=adapter_type).observe(time.time() - start_time)
 
     for asset in assets:
         metrics.ASSET_COUNT.labels(asset_type=asset.asset_type).inc()
     return {
         "inserted": result['nInserted'],
         "modified": result['nModified'],
+        "assets_processed": len(assets),
         "success": True,
     }
