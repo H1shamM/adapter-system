@@ -18,6 +18,7 @@ class SyncHistoryStore:
         self.collection.create_index([("sync_id", ASCENDING)], unique=True)
         self.collection.create_index([("adapter", ASCENDING)])
         self.collection.create_index([("started_at", DESCENDING)])
+        self.collection.create_index([("adapter", ASCENDING), ("finished_at", DESCENDING)])
 
 
     def _sanitize(self, doc: dict | None) -> dict | None:

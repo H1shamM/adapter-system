@@ -5,6 +5,11 @@ SYNC_SUCCESS = Counter(
     'Successful asset synchronizations',
     ['adapter_type']
 )
+SYNC_FAILURES = Counter(
+    'adapter_sync_failure_total',
+    'Failures during the sync process',
+    ['adapter_type']
+)
 
 SYNC_DURATION = Gauge(
     'asset_sync_duration_seconds',

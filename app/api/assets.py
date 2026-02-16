@@ -7,12 +7,13 @@ from app.storage.assets import AssetStore
 
 router = APIRouter()
 
+
 @router.get('/assets')
 async def list_assets(
-        page: int = Query(1, ge= 1),
+        page: int = Query(1, ge=1),
         limit: int = Query(50, le=100),
-        asset_type: str | None =None,
-        status: str | None =None,
+        asset_type: str | None = None,
+        status: str | None = None,
         store: AssetStore = Depends(get_asset_store),
 ):
     query = {}
@@ -23,8 +24,8 @@ async def list_assets(
 
     skip = (page - 1) * limit
 
-    results = store.find_assets(query, skip , limit)
-    assets= [store._normalize_asset(res) for res in results]
+    results = store.find_assets(query, skip, limit)
+    assets = [store._normalize_asset(res) for res in results]
 
     total = store.count_assets(query)
 
@@ -34,6 +35,7 @@ async def list_assets(
         page=page,
         limit=limit,
     )
+
 
 @router.get("/assets/{asset_id}", response_model=AssetResponse)
 async def get_asset(

@@ -126,7 +126,7 @@ async def health_check(
 
     try:
         adapter = build_adapter(adapter_name, config)
-        adapter.connect()
+        await adapter.connect()
 
         return HealthResponse(
             adapter=adapter_name,

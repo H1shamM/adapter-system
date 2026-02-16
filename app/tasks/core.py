@@ -65,4 +65,6 @@ def sync_adapter_task(self, adapter_type: str, config: dict, sync_id: str):
         )
 
         metrics.SYNC_ERRORS.labels(adapter_type=adapter_type).inc()
+        metrics.SYNC_FAILURES.labels(adapter_type=adapter_type).inc()
+
         raise
