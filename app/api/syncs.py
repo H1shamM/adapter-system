@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from app.api.deps import get_sync_history_store
 from app.api.errors import NotFoundException
 from app.api.schemas.syncs import SyncStatusResponse
+from app.auth.dependencies import get_current_user
 from app.storage.sync_history import SyncHistoryStore
 
 router = APIRouter()
@@ -14,6 +15,7 @@ async def list_syncs(
         adapter: str | None = None,
         limit: int = 100,
         store: SyncHistoryStore = Depends(get_sync_history_store),
+        current_user = Depends(get_current_user)
 ):
     return store.list(adapter=adapter, limit=limit)
 

@@ -13,6 +13,7 @@ from app.adapters.schemas import ADAPTER_SCHEMAS
 from app.api.deps import get_adapter_config_store, get_sync_history_store
 from app.api.registry import ADAPTER_CONFIGS
 from app.api.schemas.adapters import AdapterSyncResponse, HealthResponse
+from app.auth.dependencies import get_current_user
 from app.storage.adapters import AdapterConfigStore
 from app.storage.sync_history import SyncHistoryStore
 from app.tasks.core import sync_adapter_task
@@ -28,7 +29,8 @@ router = APIRouter()
 async def trigger_sync(
         adapter_type: str,
         history: SyncHistoryStore = Depends(get_sync_history_store),
-        store: AdapterConfigStore = Depends(get_adapter_config_store)
+        store: AdapterConfigStore = Depends(get_adapter_config_store),
+        current_user = Depends(get_current_user)
 ):
     adapter_type = adapter_type.lower()
     if adapter_type not in SUPPORTED_ADAPTERS:
