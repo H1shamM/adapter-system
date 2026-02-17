@@ -8,8 +8,9 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from app.api.adapters import router as adapters_router
-from app.api.syncs import router as syncs_router
 from app.api.assets import router as assets_router
+from app.api.syncs import router as syncs_router
+from app.auth.router import router as auth_router
 
 app = FastAPI(
     title="Adapter System API",
@@ -45,9 +46,10 @@ async def validation_exception_handler(request, exc):
 
 metrics_app = make_asgi_app()
 
-app.include_router(adapters_router, prefix="/api/v1")
+app.include_router(adapters_router, prefix="/api/v1", )
 app.include_router(syncs_router, prefix="/api/v1")
 app.include_router(assets_router, prefix="/api/v1")
+app.include_router(auth_router, prefix="/api/v1")
 
 app.mount("/metrics", metrics_app)
 
@@ -58,6 +60,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 @app.get('/')
 async def root():
