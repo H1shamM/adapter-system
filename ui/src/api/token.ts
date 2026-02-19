@@ -1,11 +1,11 @@
-export function setToken(token: string) {
-    localStorage.setItem("token", token);
+export function setToken(name: string,token: string) {
+    localStorage.setItem(name, token);
 }
 
-export function getToken() {
-    return localStorage.getItem("token");
+export function getToken(name: string) {
+    return localStorage.getItem(name);
 }
 
-export function clearToken() {
-    localStorage.removeItem("token");
+export function clearToken(name: string) {
+    localStorage.removeItem(name);
 }
