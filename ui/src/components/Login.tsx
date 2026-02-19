@@ -9,7 +9,8 @@ export default function Login({onLogin}: {onLogin: () => void}) {
     async function handleLogin() {
         try {
             const data = await login(username, password);
-            setToken(data.access_token)
+            setToken("access",data.access_token)
+            setToken("refresh", data.refresh_token)
             onLogin();
         }
         catch {
