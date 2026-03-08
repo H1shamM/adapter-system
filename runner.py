@@ -15,9 +15,10 @@ from app.adapters.errors import (
     FetchError,
     NormalizationError
 )
+from app.utils.logging import get_logger
 
 logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def parse_args():

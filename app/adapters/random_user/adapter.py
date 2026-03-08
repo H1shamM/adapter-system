@@ -3,6 +3,7 @@ from typing import Dict, List
 
 from app.adapters.base import BaseAdapter
 from app.adapters.errors import FetchError, AuthenticationError
+from app.config import settings
 from app.models.assets import NormalizedAsset
 
 class RandomUserAdapter(BaseAdapter):
@@ -40,6 +41,7 @@ class RandomUserAdapter(BaseAdapter):
         for data in raw_data:
             asset = NormalizedAsset.from_raw({
                 "asset_id": data['login']["uuid"],
+                "customer_id": settings.customer_id,
                 "name": f"{data['name']['first']} - {data['name']['last']}",
                 "asset_type": "user",
                 "status": "active",

@@ -6,6 +6,7 @@ from pydantic import Field
 
 from app.adapters.base import BaseAdapter, AdapterConfig
 from app.adapters.errors import AuthenticationError
+from app.config import settings
 from app.models.assets import NormalizedAsset
 
 
@@ -43,6 +44,7 @@ class GitHubAdapter(BaseAdapter):
         return [
             NormalizedAsset(
                 asset_id=f"github_{item['id']}",
+                customer_id=settings.customer_id,
                 name=item['title'],
                 asset_type="issue",
                 status=item['state'].upper(),

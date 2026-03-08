@@ -1,5 +1,3 @@
-import logging
-
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -15,6 +13,12 @@ from app.api.syncs import router as syncs_router
 from app.auth.router import router as auth_router
 from app.config.settings import settings
 from app.db.mongo import close_mongo_client
+from app.utils.logging import get_logger, setup_logging
+
+# setup structured logging
+setup_logging()
+
+logger = get_logger(__name__)
 
 app = FastAPI(
     title=settings.app_name,
@@ -27,11 +31,17 @@ app.state.limiter = limiter
 
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-logger = logging.getLogger(__name__)
-
 
 @app.on_event("startup")
 async def startup_event():
+    logger.info(
+        "application_startup",
+        app_name= settings.app_name,
+        version= settings.app_version,
+        enviorment= settings.environment,
+        customer_id= settings.customer_id,
+        instance_id = settings.instance_id
+    )
     logger.info(f"Starting {settings.app_name} v{settings.app_version}")
 
 

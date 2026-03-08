@@ -17,8 +17,9 @@ from app.auth.dependencies import get_current_user
 from app.storage.adapters import AdapterConfigStore
 from app.storage.sync_history import SyncHistoryStore
 from app.tasks.core import sync_adapter_task
+from app.utils.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 router = APIRouter()
 
 

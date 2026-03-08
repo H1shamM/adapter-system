@@ -3,6 +3,8 @@ from datetime import datetime, timedelta
 from app.adapters.base import BaseAdapter, AdapterConfig
 from typing import List, Dict
 
+from app.config import settings
+
 
 class MockConfig(AdapterConfig):
     asset_types: list = ["endpoint", "user"]
@@ -19,6 +21,7 @@ class MockAdapter(BaseAdapter):
     def normalize(self, raw_data: List[Dict]) -> List[Dict]:
         return [{
             "asset_id": f"mock_{asset['type']}_{asset['id']}",
+            "customer_id": settings.customer_id,
             "name": asset["name"],
             "type": asset["type"],
             "status": random.choice(["ACTIVE", "INACTIVE"]),

@@ -2,6 +2,7 @@ from typing import Dict, List
 import boto3
 
 from app.adapters.base import BaseAdapter, AdapterConfig
+from app.config import settings
 
 class AWSConfig(AdapterConfig):
     """AWS-specific configuration"""
@@ -39,6 +40,7 @@ class AWSAdapter(BaseAdapter):
     def normalize(self, raw_data: List[Dict]) -> List[Dict]:
         return [{
             "asset_id": f"aws_ec2_{instance['InstanceId']}",
+            "customer_id": settings.customer_id,
             "name": next(
                 (tag['Value'] for tag in instance.get('Tags', [])
                  if tag['Key'] == 'Name'),

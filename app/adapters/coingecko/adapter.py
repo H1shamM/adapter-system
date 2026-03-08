@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import List,Dict
 from app.adapters.base import BaseAdapter, AdapterConfig
+from app.config import settings
 from app.models.assets import NormalizedAsset
 from app.adapters.errors import FetchError
 
@@ -34,6 +35,7 @@ class CoinGeckoAdapter(BaseAdapter):
         for data in raw_data:
             asset = NormalizedAsset.from_raw({
                 "asset_id": data["id"],
+                "customer_id": settings.customer_id,
                 "name": data["name"],
                 "asset_type": "crypto",
                 "status": "active",
