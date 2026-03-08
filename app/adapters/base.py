@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Literal, Type
 
+import requests
 from pydantic import Field
 
 from app.adapters.errors import AuthenticationError, FetchError
@@ -55,6 +56,11 @@ class BaseAdapter(ABC):
             return self.normalize(raw_data)
         except AuthenticationError:
             raise
+        except requests.exceptions.HTTPError as err:
+            if err.response is not None and err.response.status_code in (401, 403):
+                raise AuthenticationError(f"Authentication failed: {str(err)}") from err
+            status = err.response.status_code if err.response else "UNKNOWN"
+            raise FetchError(f"{self.config.name}: execution failed ({status})") from err
         except Exception as e:
             raise FetchError(
                 f"{self.config.name}: execution failed"

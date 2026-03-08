@@ -1,3 +1,4 @@
+import os
 import asyncio
 from typing import Optional, Dict, Any, Callable, List
 from urllib.parse import urlparse, parse_qs
@@ -8,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from httpx_aws_auth import AwsSigV4Auth
 from app.adapters.registry import AuthType
+from app.config import settings
 
 # Metrics setup
 REQUEST_COUNTER = Counter(
@@ -29,9 +31,9 @@ class HttpClientConfig(BaseModel):
     auth_type: AuthType = "none"
     auth_config: Dict[str, Any] = Field(default_factory=dict)
 
-    default_timeout: int = 30
-    max_retries: int = 3
-    retry_wait: int = 5
+    default_timeout: int = Field(default=settings.client.default_timeout)
+    max_retries: int = Field(default=settings.client.default_max_retries)
+    retry_wait: int = Field(default=settings.client.default_retry_wait)
 
     max_connections: int = 100
     max_keepalive_connections: int = 20
@@ -57,21 +59,31 @@ class AssetHttpClient:
         auth_type = self.config.auth_type
 
         if auth_type == "bearer":
-            token = self.config.auth_config.get("token")
+            token = self._resolve_secret(self.config.auth_config.get("token"))
             self.client.headers["Authorization"] = f"Bearer {token}"
 
         elif auth_type == "aws_sigv4":
             self.client.auth = AwsSigV4Auth(
-                self.config.auth_config["access_key"],
-                self.config.auth_config["secret_key"],
-                self.config.auth_config["region"],
-                service="execute-api"  # Service name for AWS APIs
+                self._resolve_secret(self.config.auth_config["access_key"]),
+                self._resolve_secret(self.config.auth_config["secret_key"]),
+                self._resolve_secret(self.config.auth_config["region"]),
+                "execute-api"  # Service name for AWS APIs
             )
 
         elif auth_type == "api_key":
-            key = self.config.auth_config["key"]
+            key = self._resolve_secret(self.config.auth_config["key"])
             header = self.config.auth_config.get("header", "X-API-KEY")
             self.client.headers[header] = key
+
+    def _resolve_secret(self, value:Any):
+        """
+        Resolve a value ,checking if it's an env variable reference
+        """
+        if isinstance(value, str) and value.startswith("VAR:"):
+            env_name = value[4:]
+            return os.getenv(env_name,"")
+        return value
+
 
     async def request(self, method: str, path: str, **kwargs) -> httpx.Response:
         """Core request method with retry logic"""
