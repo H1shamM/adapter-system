@@ -1,23 +1,44 @@
 import logging
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from prometheus_client import make_asgi_app
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 from starlette.middleware.cors import CORSMiddleware
-from starlette.requests import Request
-from starlette.responses import JSONResponse
 
 from app.api.adapters import router as adapters_router
 from app.api.assets import router as assets_router
 from app.api.syncs import router as syncs_router
 from app.auth.router import router as auth_router
+from app.config.settings import settings
+from app.db.mongo import close_mongo_client
 
 app = FastAPI(
-    title="Adapter System API",
-    version="1.0.0",
+    title=settings.app_name,
+    version=settings.app_version,
+    debug=settings.api.debug,
 )
 
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 logger = logging.getLogger(__name__)
+
+
+@app.on_event("startup")
+async def startup_event():
+    logger.info(f"Starting {settings.app_name} v{settings.app_version}")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    logger.info(f"Shutting down {settings.app_name} v{settings.app_version}")
+    close_mongo_client()
 
 
 @app.exception_handler(Exception)
@@ -55,7 +76,7 @@ app.mount("/metrics", metrics_app)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=settings.api.api_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -64,4 +85,16 @@ app.add_middleware(
 
 @app.get('/')
 async def root():
-    return {"message": "Adapter System API"}
+    return {
+        "message": f"{settings.app_name} API",
+        "version": settings.app_version,
+        "environment": settings.environment
+    }
+
+
+@app.get('/health')
+async def health_check():
+    return {
+        "status": "healthy",
+        "environment": settings.environment,
+    }

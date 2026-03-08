@@ -1,7 +1,9 @@
 from fastapi import HTTPException, APIRouter, status, Depends
+from fastapi import Form
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import JWTError
 
+from app.api.main import limiter
 from app.auth.security import create_access_token, verify_password, hash_password, create_refresh_token, decode_token
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -15,6 +17,7 @@ fake_user = {
 
 
 @router.post("/login")
+@limiter.limit("5/minute")
 def login(form_data: OAuth2PasswordRequestForm = Depends()):
     if form_data.username != fake_user["username"]:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect username")
@@ -32,7 +35,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends()):
 
 
 @router.post("/refresh")
-def refresh_token(token: str):
+def refresh_token(token: str = Form(...)):
     try:
         payload = decode_token(token)
 
@@ -42,6 +45,9 @@ def refresh_token(token: str):
         user_name = payload.get("sub")
         access_token = create_access_token(data={"username": user_name})
 
-        return {"access_token": access_token}
+        return {
+            "access_token": access_token,
+            "token_type": "bearer"
+        }
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
