@@ -4,6 +4,7 @@ from typing import List
 from pymongo import DESCENDING, ASCENDING, UpdateOne
 from pymongo.errors import BulkWriteError, PyMongoError
 
+from app.config import settings
 from app.db.mongo import get_mongo_client
 from app.models.assets import NormalizedAsset
 
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 class AssetStore:
     def __init__(self):
         self.client = get_mongo_client()
-        self.db = self.client["asset_management"]
+        self.db = self.client[settings.database.mongo_db_name]
         self.collection = self.db.assets
         self._create_indexes()
 

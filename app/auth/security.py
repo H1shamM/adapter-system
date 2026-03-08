@@ -4,10 +4,12 @@ from typing import Optional
 from jose import jwt
 from passlib.context import CryptContext
 
-SECRET_KEY = 'my-secret-key'
-ALGORITHM = 'HS256'
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
-REFRESH_TOKEN_EXPIRE_DAYS = 7
+from app.config import settings
+
+SECRET_KEY = settings.api.api_jwt_secret_key
+ALGORITHM = settings.api.api_jwt_algorithm
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.api.api_jwt_expiration_minutes
+REFRESH_TOKEN_EXPIRE_DAYS = settings.api.api_jwt_refresh_token_expiration_days
 
 pwd_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
 
