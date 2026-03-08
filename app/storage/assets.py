@@ -1,14 +1,16 @@
-import logging
+
 from typing import List
 
+from passlib.ext.django.models import adapter
 from pymongo import DESCENDING, ASCENDING, UpdateOne
 from pymongo.errors import BulkWriteError, PyMongoError
 
 from app.config import settings
 from app.db.mongo import get_mongo_client
 from app.models.assets import NormalizedAsset
+from app.utils.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class AssetStore:
@@ -19,9 +21,12 @@ class AssetStore:
         self._create_indexes()
 
     def _create_indexes(self):
-        self.db.assets.create_index([("asset_id",ASCENDING)], unique=True)
-        self.db.assets.create_index([("_last_modified", DESCENDING)])
-        self.db.assets.create_index([("type", ASCENDING), ("status", ASCENDING)])
+        self.db.assets.create_index(
+            [("customer_id",ASCENDING),("asset_id",ASCENDING)],
+            unique=True
+        )
+        self.db.assets.create_index([("customer_id",ASCENDING),("_last_modified", DESCENDING)])
+        self.db.assets.create_index([("customer_id",ASCENDING),("type", ASCENDING), ("status", ASCENDING)])
 
     def store_assets(self, assets: List[NormalizedAsset]):
         operations = []
@@ -41,7 +46,10 @@ class AssetStore:
 
         try:
             result = self.db.assets.bulk_write(operations)
-            logger.info("Assets stored successfully", extra={"count": len(operations)})
+            logger.info(
+                "Assets stored successfully",
+                assets_count= len(operations),
+            )
 
             return result.bulk_api_result
         except BulkWriteError as e:
@@ -52,6 +60,8 @@ class AssetStore:
             raise
 
     def find_assets(self, query: dict, skip: int = 0, limit: int = 50):
+        query['customer_id'] = settings.customer_id
+
         return list(
             self.db.assets.find(query)
             .sort("_last_modified", DESCENDING)
@@ -62,13 +72,19 @@ class AssetStore:
 
     def get_asset(self, asset_id: str) -> dict:
         return self.db.assets.find_one(
-            {"asset_id": asset_id},
+            {
+                "asset_id": asset_id,
+                "customer_id": settings.customer_id
+            },
             maxTimeMS=200  # Fail fast if slow
         )
 
     def get_asset_history(self, asset_id: str):
         return list(self.db.assets.find(
-            {"asset_id": asset_id},
+            {
+                "asset_id": asset_id,
+                "customer_id": settings.customer_id
+            },
             sort=[("_last_modified", DESCENDING)],
             projection={"_id": 0, "version": 1, "_last_modified": 1}
         ))
@@ -87,5 +103,7 @@ class AssetStore:
         }
 
     def count_assets(self, query: dict) -> int:
+        query['customer_id'] = settings.customer_id
+
         return self.db.assets.count_documents(query, maxTimeMS=500)
 

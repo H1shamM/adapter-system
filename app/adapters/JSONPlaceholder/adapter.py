@@ -3,6 +3,7 @@ from typing import Dict, List
 
 from app.adapters.base import BaseAdapter
 from app.adapters.errors import FetchError
+from app.config import settings
 from app.models.assets import NormalizedAsset
 
 
@@ -25,6 +26,7 @@ class JSONPlaceholderAdapter(BaseAdapter):
         for data in raw_data:
             asset = NormalizedAsset.from_raw({
                 "asset_id": str(data["id"]),
+                "customer_id": settings.customer_id,
                 "name": data["name"],
                 "asset_type": "user",
                 "status": "active",

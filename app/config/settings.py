@@ -1,7 +1,13 @@
+from pathlib import Path
 from typing import Literal
 
+from dotenv import load_dotenv
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+dotenv_path = BASE_DIR / ".env"
+load_dotenv(dotenv_path)
 
 
 class DatabaseSettings(BaseSettings):
@@ -36,6 +42,7 @@ class DatabaseSettings(BaseSettings):
         case_sensitive=False
     )
 
+
 class ClientSettings(BaseSettings):
     """Client settings"""
 
@@ -56,6 +63,7 @@ class ClientSettings(BaseSettings):
         ge=1,
         le=60,
     )
+
 
 class CelerySettings(BaseSettings):
     """Celery settings"""
@@ -182,6 +190,16 @@ class Settings(BaseSettings):
     app_version: str = Field(default="1.0.0")
     environment: Literal["production", "development"] = Field(default="development")
 
+    customer_id: str = Field(
+        default="default_customer_id",
+        description="Unique customer identifier for this instance"
+    )
+
+    instance_id: str = Field(
+        default="default_instance_id",
+        description="Unique instance identifier (e.g., acme-prod-us-east-1)"
+    )
+
     client: ClientSettings = Field(default_factory=ClientSettings)
     api: APISettings = Field(default_factory=APISettings)
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
@@ -192,7 +210,9 @@ class Settings(BaseSettings):
     pythonunbuffered: bool = False
 
     model_config = SettingsConfigDict(
-        env_file="/app/.env",
+        env_file=str(BASE_DIR / ".env"),
+        env_file_encoding="utf-8",
+        extra="ignore",
         case_sensitive=False
     )
 

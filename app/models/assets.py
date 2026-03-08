@@ -6,6 +6,7 @@ from datetime import datetime
 class NormalizedAsset(BaseModel):
     """Unified asset schema"""
     asset_id: str
+    customer_id: str #NEW,  identifies which customer own this asset
     name: str
     asset_type: str
     status: str
