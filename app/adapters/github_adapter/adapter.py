@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Dict, Literal
+from typing import List, Dict
 
 import requests
 from pydantic import Field

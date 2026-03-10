@@ -1,20 +1,15 @@
-from pathlib import Path
+import os
 from typing import Literal
 
-from dotenv import load_dotenv
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-dotenv_path = BASE_DIR / ".env"
-load_dotenv(dotenv_path)
 
 
 class DatabaseSettings(BaseSettings):
     """Database settings"""
 
     mongo_url: str = Field(
-        default="mongodb://localhost:27017",
+        default="mongodb://mongo:27017",
         description="MongoDB connection string"
     )
 
@@ -39,7 +34,8 @@ class DatabaseSettings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_prefix="MONGO_",
-        case_sensitive=False
+        case_sensitive=False,
+        extra="ignore"
     )
 
 
@@ -79,7 +75,8 @@ class CelerySettings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_prefix="CELERY_",
-        case_sensitive=False
+        case_sensitive=False,
+        extra="ignore"
     )
 
 
@@ -99,7 +96,8 @@ class RedisSettings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_prefix="REDIS_",
-        case_sensitive=False
+        case_sensitive=False,
+        extra="ignore"
     )
 
 
@@ -158,7 +156,8 @@ class APISettings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_prefix="API_",
-        case_sensitive=False
+        case_sensitive=False,
+        extra="ignore"
     )
 
 
@@ -181,7 +180,8 @@ class LoggingSettings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_prefix="LOG_",
-        case_sensitive=False
+        case_sensitive=False,
+        extra="ignore"
     )
 
 
@@ -210,10 +210,10 @@ class Settings(BaseSettings):
     pythonunbuffered: bool = False
 
     model_config = SettingsConfigDict(
-        env_file=str(BASE_DIR / ".env"),
+        env_file=os.getenv("ENV_FILE", ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
-        case_sensitive=False
+        case_sensitive=False,
     )
 
 

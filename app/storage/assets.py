@@ -1,7 +1,5 @@
-
 from typing import List
 
-from passlib.ext.django.models import adapter
 from pymongo import DESCENDING, ASCENDING, UpdateOne
 from pymongo.errors import BulkWriteError, PyMongoError
 
@@ -22,11 +20,11 @@ class AssetStore:
 
     def _create_indexes(self):
         self.db.assets.create_index(
-            [("customer_id",ASCENDING),("asset_id",ASCENDING)],
+            [("customer_id", ASCENDING), ("asset_id", ASCENDING)],
             unique=True
         )
-        self.db.assets.create_index([("customer_id",ASCENDING),("_last_modified", DESCENDING)])
-        self.db.assets.create_index([("customer_id",ASCENDING),("type", ASCENDING), ("status", ASCENDING)])
+        self.db.assets.create_index([("customer_id", ASCENDING), ("_last_modified", DESCENDING)])
+        self.db.assets.create_index([("customer_id", ASCENDING), ("type", ASCENDING), ("status", ASCENDING)])
 
     def store_assets(self, assets: List[NormalizedAsset]):
         operations = []
@@ -48,7 +46,7 @@ class AssetStore:
             result = self.db.assets.bulk_write(operations)
             logger.info(
                 "Assets stored successfully",
-                assets_count= len(operations),
+                assets_count=len(operations),
             )
 
             return result.bulk_api_result
@@ -106,4 +104,3 @@ class AssetStore:
         query['customer_id'] = settings.customer_id
 
         return self.db.assets.count_documents(query, maxTimeMS=500)
-

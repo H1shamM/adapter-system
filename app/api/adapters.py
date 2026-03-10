@@ -1,11 +1,9 @@
-import logging
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException
 from fastapi.params import Depends
 from kombu.exceptions import OperationalError
 
-from app.adapters.base import AdapterConfig
 from app.adapters.errors import AuthenticationError
 from app.adapters.factory import build_adapter
 from app.adapters.registry import SUPPORTED_ADAPTERS
@@ -31,7 +29,7 @@ async def trigger_sync(
         adapter_type: str,
         history: SyncHistoryStore = Depends(get_sync_history_store),
         store: AdapterConfigStore = Depends(get_adapter_config_store),
-        current_user = Depends(get_current_user)
+        current_user=Depends(get_current_user)
 ):
     adapter_type = adapter_type.lower()
     if adapter_type not in SUPPORTED_ADAPTERS:
@@ -102,9 +100,11 @@ async def get_adapter(
         "config": config or {},
     }
 
+
 @router.get("/adapters/{name}/schema")
 async def get_adapter_schema(name: str):
     return ADAPTER_SCHEMAS.get(name, {})
+
 
 @router.post("/adapters/{adapter_name}/health")
 async def health_check(

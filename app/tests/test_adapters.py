@@ -1,4 +1,3 @@
-import pytest
 from app.adapters.factory import build_adapter
 from app.adapters.github_adapter.adapter import GitHubAdapter
 
