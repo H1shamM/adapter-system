@@ -20,7 +20,7 @@ def test_password_hash_and_verify():
     assert verify_password(password, hashed_password)
 
 
-def test_password_verfiy_fails_for_wrong_password():
+def test_password_verify_fails_for_wrong_password():
     password = "secret123"
     hashed_password = hash_password(password)
 

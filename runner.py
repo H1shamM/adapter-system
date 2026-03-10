@@ -6,15 +6,14 @@ import sys
 import traceback
 
 from fastapi.exceptions import ValidationException
-from dotenv import load_dotenv
 
-from app.api.schemas.adapters import AdapterSyncRequest
-from app.services.sync_engine import run_adapter_sync
 from app.adapters.errors import (
     AuthenticationError,
     FetchError,
     NormalizationError
 )
+from app.api.schemas.adapters import AdapterSyncRequest
+from app.services.sync_engine import run_adapter_sync
 from app.utils.logging import get_logger
 
 logging.basicConfig(level=logging.DEBUG)

@@ -2,7 +2,6 @@ from fastapi import APIRouter, Query, Depends
 
 from app.api.errors import NotFoundException
 from app.api.deps import get_asset_store
-from app.api.main import limiter
 from app.api.schemas.assets import AssetListResponse, AssetResponse
 from app.storage.assets import AssetStore
 
@@ -10,7 +9,6 @@ router = APIRouter()
 
 
 @router.get('/assets')
-@limiter.limit('30/minute')
 async def list_assets(
         page: int = Query(1, ge=1),
         limit: int = Query(50, le=100),
