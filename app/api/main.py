@@ -9,6 +9,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from app.api.adapters import router as adapters_router
 from app.api.assets import router as assets_router
+from app.api.health import router as health_router
 from app.api.syncs import router as syncs_router
 from app.auth.router import router as auth_router
 from app.config.settings import settings
@@ -23,7 +24,7 @@ logger = get_logger(__name__)
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
-    debug=settings.api.debug,
+    debug=settings.api.api_debug,
 )
 
 limiter = Limiter(key_func=get_remote_address)
@@ -36,11 +37,11 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 async def startup_event():
     logger.info(
         "application_startup",
-        app_name= settings.app_name,
-        version= settings.app_version,
-        enviorment= settings.environment,
-        customer_id= settings.customer_id,
-        instance_id = settings.instance_id
+        app_name=settings.app_name,
+        version=settings.app_version,
+        enviorment=settings.environment,
+        customer_id=settings.customer_id,
+        instance_id=settings.instance_id
     )
     logger.info(f"Starting {settings.app_name} v{settings.app_version}")
 
@@ -80,6 +81,7 @@ metrics_app = make_asgi_app()
 app.include_router(adapters_router, prefix="/api/v1", )
 app.include_router(syncs_router, prefix="/api/v1")
 app.include_router(assets_router, prefix="/api/v1")
+app.include_router(health_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1")
 
 app.mount("/metrics", metrics_app)
@@ -98,13 +100,25 @@ async def root():
     return {
         "message": f"{settings.app_name} API",
         "version": settings.app_version,
-        "environment": settings.environment
+        "environment": settings.environment,
+        "customer_id": settings.customer_id,
+        "instance_id": settings.instance_id,
+        "health_checks": {
+            "liveness": "health/live",
+            "readiness": "health/ready",
+            "info": "health/info",
+            "startup": "health/startup",
+        },
+        "documentation": "/docs",
     }
 
-
-@app.get('/health')
-async def health_check():
+@app.get('/debug/dev')
+async def debug_dev():
+    import os
     return {
-        "status": "healthy",
-        "environment": settings.environment,
+        "customer_id_from_settings": settings.customer_id,
+        "customer_id_from_env": os.getenv("CUSTOMER_ID"),
+        "mongo_url_from_settings": settings.database.mongo_url,
+        "mongo_url_from_env": os.getenv("MONGO_URL"),
+        "all_env_vars": {k: v for k, v in os.environ.items() if k.startswith(('CUSTOMER', 'MONGO', 'API', 'ADAPTER'))}
     }

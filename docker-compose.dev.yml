@@ -2,6 +2,8 @@ version: "3.9"
 
 services:
   fastapi:
+    env_file:
+      - '.env'
     volumes:
       - ./app:/app/app
     command: > 
@@ -11,6 +13,8 @@ services:
       --reload
 
   worker:
+    env_file:
+      - '.env'
     volumes:
       - ./app/:/app/app
     command: >
