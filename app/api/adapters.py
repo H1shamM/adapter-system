@@ -22,34 +22,41 @@ router = APIRouter()
 
 
 @router.post(
-    "/adapters/{adapter_type}/sync",
+    "/adapters/{adapter_id}/sync",
     response_model=AdapterSyncResponse,
 )
 async def trigger_sync(
-        adapter_type: str,
+        adapter_id: str,
         history: SyncHistoryStore = Depends(get_sync_history_store),
         store: AdapterConfigStore = Depends(get_adapter_config_store),
         current_user=Depends(get_current_user)
 ):
-    adapter_type = adapter_type.lower()
+    config = store.get(adapter_id)
+    if not config:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Adapter instance  {adapter_id} not found"
+        )
+
+    adapter_type = config.get("adapter_type")
     if adapter_type not in SUPPORTED_ADAPTERS:
         raise HTTPException(
             status_code=404,
             detail=f"Adapter  {adapter_type} not supported"
         )
-    config = store.get(adapter_type)
-    if not config:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Adapter  {adapter_type} not Configured"
-        )
+
     sync_id = str(uuid4())
     try:
-        logger.info("Queuing adapter sync task", extra={"adapter_type": adapter_type, "config": config})
-        task = sync_adapter_task.delay(adapter_type, config, sync_id)
+        logger.info(
+            "Queuing adapter sync task",
+            adapter_id=adapter_id,
+            adapter_type=adapter_type,
+            sync_id=sync_id
+        )
+        task = sync_adapter_task.delay(adapter_id, adapter_type, config, sync_id)
         history.start_sync(
             sync_id=sync_id,
-            adapter=adapter_type,
+            adapter=adapter_id,
         )
 
     except OperationalError:
@@ -65,10 +72,19 @@ async def trigger_sync(
 
 
 @router.get("/adapters")
-async def list_adapters():
+async def list_adapters(
+        adapter_type: str = None,
+        store: AdapterConfigStore = Depends(get_adapter_config_store)
+):
+    if adapter_type:
+        instances = store.get_by_type(adapter_type)
+    else:
+        instances = store.list_all()
+
     return {
-        "available": list(SUPPORTED_ADAPTERS),
-        "active": list(SUPPORTED_ADAPTERS)
+        "total": len(instances),
+        "instances": instances,
+        "supported_types": list(SUPPORTED_ADAPTERS)
     }
 
 
@@ -77,27 +93,56 @@ async def upsert_adapter(
         payload: dict,
         store: AdapterConfigStore = Depends(get_adapter_config_store)
 ):
-    adapter_name = payload.get("name")
-    if adapter_name not in SUPPORTED_ADAPTERS:
-        raise HTTPException(400, "Unknown adapter")
+    adapter_type = payload.get("adapter_type") or payload.get("name")
 
-    schema = ADAPTER_CONFIGS.get(adapter_name)
+    if not adapter_type:
+        raise HTTPException(400, "Missing adapter type")
+
+    if adapter_type not in SUPPORTED_ADAPTERS:
+        raise HTTPException(400, f"Unknown adapter type: {adapter_type}")
+
+    adapter_id = payload.get("adapter_id")
+    if not adapter_id:
+        from uuid import uuid4
+        adapter_id = f"{adapter_type}_{uuid4().hex[:8]}"
+
+    schema = ADAPTER_CONFIGS.get(adapter_type)
     user_config = schema(**payload)
+    config_dict = user_config.dict(exclude_unset=True)
 
-    store.upsert(name=adapter_name, config=user_config.dict(exclude_unset=True))
-    return {"status": "saved"}
+    store.upsert(
+        adapter_id=adapter_id,
+        adapter_type=adapter_type,
+        config=config_dict
+    )
+
+    if config_dict.get("enabled", True):
+        sync_interval = config_dict.get("sync_interval", 3600)
+        store.set_next_sync(adapter_id, sync_interval)
+    return {
+        "status": "saved",
+        "adapter_id": adapter_id,
+        "adapter_type": adapter_type,
+    }
 
 
-@router.get("/adapters/{name}")
+@router.get("/adapters/{adapter_id}")
 async def get_adapter(
-        name: str,
+        adapter_id: str,
         store: AdapterConfigStore = Depends(get_adapter_config_store)
 ):
-    config = store.get(name)
+    config = store.get(adapter_id)
+    if not config:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Adapter instance {adapter_id} not found",
+        )
+
     return {
-        "name": name,
-        "enabled": bool(config),
-        "config": config or {},
+        "adapter_id": adapter_id,
+        "adapter_type": config.get("adapter_type"),
+        "enabled": config.get("enabled", True),
+        "config": config,
     }
 
 
