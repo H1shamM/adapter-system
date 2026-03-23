@@ -1,0 +1,76 @@
+version: "3.9"
+# Scaling test mode - 4 workers with high concurrency
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.scaling-test.yml up
+services:
+
+  worker:
+    deploy:
+      replicas: 0
+
+  worker1:
+    build: .
+    container_name: adapter_worker_1
+    command: ["sh", "-c", "celery -A app.tasks.core worker --loglevel=info -Q sync_queue --concurrency=10 --hostname=worker1@%h"]
+    env_file:
+      - .env
+    environment:
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+      - MONGO_URL=${MONGO_URL}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker2:
+    build: .
+    container_name: adapter_worker_2
+    command: [ "sh", "-c", "celery -A app.tasks.core worker --loglevel=info -Q sync_queue --concurrency=10 --hostname=worker2@%h" ]
+    env_file:
+      - .env
+    environment:
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+      - MONGO_URL=${MONGO_URL}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker3:
+    build: .
+    container_name: adapter_worker_3
+    command: [ "sh", "-c", "celery -A app.tasks.core worker --loglevel=info -Q sync_queue --concurrency=10 --hostname=worker3@%h" ]
+    env_file:
+      - .env
+    environment:
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+      - MONGO_URL=${MONGO_URL}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker4:
+    build: .
+    container_name: adapter_worker_4
+    command: [ "sh", "-c", "celery -A app.tasks.core worker --loglevel=info -Q sync_queue --concurrency=10 --hostname=worker4@%h" ]
+    env_file:
+      - .env
+    environment:
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+      - MONGO_URL=${MONGO_URL}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
