@@ -6,7 +6,7 @@ from passlib.context import CryptContext
 
 from app.config import settings
 
-SECRET_KEY = settings.api.api_jwt_secret_key
+SECRET_KEY = settings.api.api_jwt_secret_key.get_secret_value()
 ALGORITHM = settings.api.api_jwt_algorithm
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.api.api_jwt_expiration_minutes
 REFRESH_TOKEN_EXPIRE_DAYS = settings.api.api_jwt_refresh_token_expiration_days

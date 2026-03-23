@@ -25,10 +25,16 @@ async def run_adapter_sync(adapter_type: str, config: dict):
         adapter_type=adapter_type,
         customer_id=settings.customer_id
     ).inc()
-    metrics.SYNC_DURATION.labels(adapter_type=adapter_type).observe(time.time() - start_time)
+    metrics.SYNC_DURATION.labels(
+        adapter_type=adapter_type,
+        customer_id=settings.customer_id
+    ).observe(time.time() - start_time)
 
     for asset in assets:
-        metrics.ASSET_COUNT.labels(asset_type=asset.asset_type).inc()
+        metrics.ASSET_COUNT.labels(
+            asset_type=asset.asset_type,
+            customer_id=settings.customer_id
+        ).inc()
     return {
         "inserted": result['nInserted'],
         "modified": result['nModified'],

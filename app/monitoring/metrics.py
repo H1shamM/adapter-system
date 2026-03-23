@@ -1,4 +1,4 @@
-from prometheus_client import Counter , Gauge
+from prometheus_client import Counter, Gauge, Histogram
 
 SYNC_SUCCESS = Counter(
     'asset_sync_success_total',
@@ -11,7 +11,7 @@ SYNC_FAILURES = Counter(
     ['adapter_type', 'customer_id']
 )
 
-SYNC_DURATION = Gauge(
+SYNC_DURATION = Histogram(
     'asset_sync_duration_seconds',
     'Sync execution time',
     ['adapter_type', 'customer_id']
