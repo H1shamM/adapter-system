@@ -1,5 +1,6 @@
 version: "3.9"
-
+# Development mode - extends base docker-compose.yml
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
 services:
   fastapi:
     env_file:
