@@ -31,14 +31,7 @@ class AdapterConfigStore:
         return serialize_mongo(doc)
 
     def upsert(self, adapter_id: str, adapter_type: str, config: dict):
-        """
-        Upsert  adapter instance config
-
-        Args:
-            adapter_id: Unique instance identifier
-            adapter_type: Adapter type (e.g ,"GitHub")
-            config: Configuration dict        :param name:
-        """
+        """Upsert an adapter instance config."""
 
         config_with_meta = {
             "adapter_id": adapter_id,

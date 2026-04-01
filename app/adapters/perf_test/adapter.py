@@ -1,13 +1,16 @@
 import asyncio
 import random
 from datetime import datetime
-from typing import Dict,List
+from typing import Dict, List
 
 from pydantic import Field
 
 from app.adapters.base import BaseAdapter, AdapterConfig
 from app.config import settings
 from app.models.assets import NormalizedAsset
+from app.utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class PerfTestConfig(AdapterConfig):
@@ -22,7 +25,7 @@ class PerfTestConfig(AdapterConfig):
 
     asset_count: int = Field(
         default=100,
-        description="How many assets to generate)"
+        description="How many assets to generate"
     )
 
     failure_rate: float = Field(
@@ -49,7 +52,7 @@ class PerfTestAdapter(BaseAdapter):
         return True
 
     async def fetch_raw(self) -> List[Dict]:
-        print(f"[{self.config.test_id}] Starting sync - will take {self.config.sync_duration_seconds} seconds")
+        logger.info("perf_test_sync_start", test_id=self.config.test_id, duration=self.config.sync_duration_seconds)
 
         chunk_duration = 10
         chunks = self.config.sync_duration_seconds // chunk_duration
@@ -57,7 +60,7 @@ class PerfTestAdapter(BaseAdapter):
         for i in range(chunks):
             await asyncio.sleep(chunk_duration)
             progress = (i + 1) / chunks * 100
-            print(f"[{self.config.test_id}] Progress: {progress:.0f}%")
+            logger.debug("perf_test_progress", test_id=self.config.test_id, progress=f"{progress:.0f}%")
 
         return [
             {
@@ -78,7 +81,7 @@ class PerfTestAdapter(BaseAdapter):
                 asset_type="test_asset",
                 status= item["status"].upper(),
                 last_seen=datetime.fromisoformat(item["created_at"]),
-                vendor=f"PrefTest- {self.config.test_id}",
+                vendor=f"PerfTest-{self.config.test_id}",
                 metadata={
                     "test_id": self.config.test_id,
                     "sync_duration": self.config.sync_duration_seconds,

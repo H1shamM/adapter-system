@@ -26,9 +26,9 @@ export function useAssets(page: number, limit: number) {
                     setAssets(data.results)
                     setTotal(data.total)
                 }
-            } catch (err: any) {
+            } catch (err: unknown) {
                 if (!cancelled) {
-                    setError(err.message ?? "Failed to fetch assets")
+                    setError(err instanceof Error ? err.message : "Failed to fetch assets")
                 }
 
             } finally {

@@ -27,7 +27,6 @@ function resolveAssetName(raw: ApiAsset): string {
         return raw.name
     }
     const md = raw.metadata
-    console.log("asset_type", raw.asset_type)
     if (raw.asset_type === "user" && isObject(md)){
 
         if (isString(md?.name)){

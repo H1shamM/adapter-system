@@ -61,7 +61,7 @@ export async function getAdapterInstances(adapterType?: string) {
 export async function triggerAllSyncs() {
     const instances = await getAdapterInstances();
     const results = await Promise.allSettled(
-        instances.instances.map((inst: any) =>
+        instances.instances.map((inst: {adapter_id: string}) =>
             triggerSync(inst.adapter_id)
         )
     );

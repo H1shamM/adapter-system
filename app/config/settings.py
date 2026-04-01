@@ -217,18 +217,17 @@ class Settings(BaseSettings):
     )
 
 
-def is_production(self):
-    """Production settings"""
-    return self.environment.lower() == "production"
-
-
-def is_development(self):
-    """Development settings"""
-    return self.environment.lower() == "development"
-
 
 settings = Settings()
 
 
-def get_settings():
+def is_production() -> bool:
+    return settings.environment.lower() == "production"
+
+
+def is_development() -> bool:
+    return settings.environment.lower() == "development"
+
+
+def get_settings() -> Settings:
     return settings

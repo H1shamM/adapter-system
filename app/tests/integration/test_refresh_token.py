@@ -20,7 +20,6 @@ def test_refresh_token_flow():
     assert refresh_res.status_code == 200
 
     body = refresh_res.json()
-    print(body)
     assert "access_token" in body
     assert body["token_type"] == "bearer"
 

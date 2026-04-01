@@ -4,20 +4,20 @@ from app.adapters.factory import build_adapter
 from app.config import settings
 from app.monitoring import metrics
 from app.storage.assets import AssetStore
+from app.utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 
-async def run_adapter_sync(adapter_type: str, config: dict):
-    """"
-    Run adapter ingestion synchronously.
-    This is the core orchestration logic shared by Celery and CLI.
-    """
+async def run_adapter_sync(adapter_type: str, config: dict) -> dict:
+    """Run adapter ingestion — core orchestration shared by Celery tasks and CLI."""
     start_time = time.time()
 
     adapter = build_adapter(adapter_type, config)
     assets = await adapter.execute()
 
     store = AssetStore()
-    print(f"DEBUG assets len {len(assets)}")
+    logger.info("assets_fetched", adapter_type=adapter_type, count=len(assets))
 
     result = store.store_assets(assets)
 

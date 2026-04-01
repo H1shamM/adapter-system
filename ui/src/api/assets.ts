@@ -6,7 +6,7 @@ export async function fetchAssets() {
         return res.data
     }
     catch (error) {
-        console.log("Failed to fetch assets",error)
+        console.error("Failed to fetch assets", error)
         return []
     }
 }

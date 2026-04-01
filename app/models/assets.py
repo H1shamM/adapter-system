@@ -1,18 +1,18 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from datetime import datetime
 
 
 class NormalizedAsset(BaseModel):
-    """Unified asset schema"""
+    """Unified asset schema — all adapters normalize vendor data into this model."""
     asset_id: str
-    customer_id: str #NEW,  identifies which customer own this asset
+    customer_id: str
     name: str
     asset_type: str
     status: str
     last_seen: datetime
     vendor: str
-    metadata: dict = {}
+    metadata: dict = Field(default_factory=dict)
 
 
     @classmethod

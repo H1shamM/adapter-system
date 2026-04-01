@@ -25,7 +25,6 @@ async def get_sync_summary(
         store: SyncHistoryStore = Depends(get_sync_history_store),
 ):
     docs = store.list(limit=500)
-    print(f"len {len(docs)}")
     summary = {}
 
     for doc in docs:

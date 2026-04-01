@@ -30,7 +30,7 @@ api.interceptors.response.use(
 
                 return api(originalRequest);
             } catch (refreshError) {
-                console.log("Refresh Failed -> logout", refreshError);
+                console.error("Refresh failed, logging out", refreshError);
                 clearToken("access");
                 clearToken("refresh");
 

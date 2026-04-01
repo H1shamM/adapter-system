@@ -35,14 +35,14 @@ async def trigger_sync(
     if not config:
         raise HTTPException(
             status_code=404,
-            detail=f"Adapter instance  {adapter_id} not found"
+            detail=f"Adapter instance '{adapter_id}' not found"
         )
 
     adapter_type = config.get("adapter_type")
     if adapter_type not in SUPPORTED_ADAPTERS:
         raise HTTPException(
             status_code=404,
-            detail=f"Adapter  {adapter_type} not supported"
+            detail=f"Adapter type '{adapter_type}' not supported"
         )
 
     sync_id = str(uuid4())

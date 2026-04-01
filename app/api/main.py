@@ -39,7 +39,7 @@ async def startup_event():
         "application_startup",
         app_name=settings.app_name,
         version=settings.app_version,
-        enviorment=settings.environment,
+        environment=settings.environment,
         customer_id=settings.customer_id,
         instance_id=settings.instance_id
     )
@@ -101,24 +101,10 @@ async def root():
         "message": f"{settings.app_name} API",
         "version": settings.app_version,
         "environment": settings.environment,
-        "customer_id": settings.customer_id,
-        "instance_id": settings.instance_id,
         "health_checks": {
-            "liveness": "health/live",
-            "readiness": "health/ready",
-            "info": "health/info",
-            "startup": "health/startup",
+            "liveness": "/api/v1/health/live",
+            "readiness": "/api/v1/health/ready",
+            "info": "/api/v1/health/info",
         },
         "documentation": "/docs",
-    }
-
-@app.get('/debug/dev')
-async def debug_dev():
-    import os
-    return {
-        "customer_id_from_settings": settings.customer_id,
-        "customer_id_from_env": os.getenv("CUSTOMER_ID"),
-        "mongo_url_from_settings": settings.database.mongo_url,
-        "mongo_url_from_env": os.getenv("MONGO_URL"),
-        "all_env_vars": {k: v for k, v in os.environ.items() if k.startswith(('CUSTOMER', 'MONGO', 'API', 'ADAPTER'))}
     }

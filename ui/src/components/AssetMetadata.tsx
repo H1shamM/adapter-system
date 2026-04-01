@@ -74,7 +74,7 @@ function UserMetadata({metadata}: {metadata: Record<string, unknown> }) {
         <div>
             <strong>Email:</strong>{email ?? "-"}<br/>
             <strong>Phone:</strong>{phone ?? "-"}<br/>
-            <strong>Country</strong>{country ?? "-"}<br/>
+            <strong>Country:</strong> {country ?? "-"}<br/>
         </div>
     )
 }
