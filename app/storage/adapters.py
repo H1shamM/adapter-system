@@ -59,8 +59,8 @@ class AdapterConfigStore:
         return self._sanitize(doc)
 
     def get_by_type(self, adapter_type: str):
-        cursor = self.collection.find_one({"adapter_type": adapter_type})
-        return self._sanitize(cursor)
+        cursor = self.collection.find({"adapter_type": adapter_type})
+        return [self._sanitize(doc) for doc in cursor]
 
     def list_all(self):
         cursor = self.collection.find()

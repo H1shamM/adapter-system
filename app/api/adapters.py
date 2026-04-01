@@ -151,46 +151,46 @@ async def get_adapter_schema(name: str):
     return ADAPTER_SCHEMAS.get(name, {})
 
 
-@router.post("/adapters/{adapter_name}/health")
+@router.post("/adapters/{adapter_id}/health")
 async def health_check(
-        adapter_name: str,
+        adapter_id: str,
         store: AdapterConfigStore = Depends(get_adapter_config_store)
 ):
-    config = store.get(adapter_name)
+    config = store.get(adapter_id)
 
     if not config:
         return HealthResponse(
-            adapter=adapter_name,
+            adapter=adapter_id,
             status="UNKNOWN",
-            message=f"Adapter {adapter_name} not configured"
-
+            message=f"Adapter {adapter_id} not configured"
         )
     if not config.get("enabled", True):
         return HealthResponse(
-            adapter=adapter_name,
+            adapter=adapter_id,
             status="DISABLED",
-            message=f"Adapter {adapter_name} disabled"
+            message=f"Adapter {adapter_id} disabled"
         )
 
+    adapter_type = config.get("adapter_type")
     try:
-        adapter = build_adapter(adapter_name, config)
+        adapter = build_adapter(adapter_type, config)
         await adapter.connect()
 
         return HealthResponse(
-            adapter=adapter_name,
+            adapter=adapter_id,
             status="HEALTHY",
-            message=f"Adapter {adapter_name} healthy"
+            message=f"Adapter {adapter_id} healthy"
         )
 
     except AuthenticationError as e:
         return HealthResponse(
-            adapter=adapter_name,
+            adapter=adapter_id,
             status="UNHEALTHY",
-            message=f"Adapter {adapter_name} unhealthy {str(e)}"
+            message=f"Adapter {adapter_id} unhealthy: {str(e)}"
         )
     except Exception as e:
         return HealthResponse(
-            adapter=adapter_name,
+            adapter=adapter_id,
             status="UNHEALTHY",
-            message=f"Adapter {adapter_name} Failed {str(e)}"
+            message=f"Adapter {adapter_id} failed: {str(e)}"
         )
