@@ -31,16 +31,16 @@ function getNumber(
 export function AssetMetadata({asset}: {asset: Asset}) {
     switch (asset.type) {
         case "user":
-            return <UserMetadata metadata={asset.data.metadata} />
+            return <UserMetadata metadata={asset.metadata} />
 
         case "crypto":
-            return <CryptoMetadata metadata={asset.data.metadata} />
+            return <CryptoMetadata metadata={asset.metadata} />
 
         case "issue":
-            return <IssueMetadata metadata={asset.data.metadata} />
+            return <IssueMetadata metadata={asset.metadata} />
 
         default:
-            return <pre>{JSON.stringify(asset.data.metadata, null, 2)}</pre>
+            return <pre>{JSON.stringify(asset.metadata, null, 2)}</pre>
     }
 }
 

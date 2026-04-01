@@ -7,8 +7,8 @@ export function mapApiAsset(raw: ApiAsset): Asset {
         type: raw.asset_type,
         status:raw.status,
         vendor:raw.vendor,
-        last_seen:raw.last_seen,
-        metadata:raw.metadata?? {},
+        last_seen:raw.last_seen ?? '',
+        metadata:raw.metadata ?? {},
         name: resolveAssetName(raw),
     }
 

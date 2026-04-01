@@ -1,14 +1,11 @@
 export interface Asset {
     id: string
+    name: string
     type: string
     status: string
-    data: {
-        name: string
-        vendor: string
-        last_seen: string
-        metadata: Record<string, unknown>
-    }
-
+    vendor: string
+    last_seen: string
+    metadata: Record<string, unknown>
 }
 
 export interface AssetListResponse {

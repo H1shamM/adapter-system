@@ -11,15 +11,15 @@ function getStatusColor(status: string) {
     switch (status.toLowerCase()) {
         case "success":
         case "active":
-            return "green"
+            return "#10b981"
         case "pending":
         case "running":
-            return "orange"
+            return "#f59e0b"
         case "failed":
         case "error":
-            return "red"
+            return "#ef4444"
         default:
-            return "#333"
+            return "#374151"
     }
 }
 
@@ -38,132 +38,225 @@ export function AssetList() {
         setExpandId(prev => (prev === id ? null : id))
     }
 
+    if (loading && assets.length === 0) {
+        return <div style={styles.loading}>Loading assets...</div>;
+    }
+
+    if (error) {
+        return (
+            <div style={styles.errorContainer}>
+                <p>{error}</p>
+                <button onClick={() => setPage(1)} style={styles.retryBtn}>Retry</button>
+            </div>
+        );
+    }
+
+    if (!loading && assets.length === 0) {
+        return (
+            <div style={styles.emptyContainer}>
+                No assets found. Run a sync to ingest data from your adapters.
+            </div>
+        );
+    }
 
     return (
         <div style={styles.container}>
-            <h2>All Assets</h2>
+            <div style={styles.header}>
+                <h2 style={styles.title}>All Assets</h2>
+                <span style={styles.totalCount}>{total} total</span>
+            </div>
 
-            {loading && <p>Loading assets...</p>}
-            {error && <p style={{color: "red"}}></p>}
+            <div style={styles.tableWrapper}>
+                <table style={styles.table}>
+                    <thead>
+                    <tr style={styles.headerRow}>
+                        <th style={{...styles.th, width: 40}}></th>
+                        <th style={styles.th}>ID</th>
+                        <th style={styles.th}>Type</th>
+                        <th style={styles.th}>Name</th>
+                        <th style={styles.th}>Vendor</th>
+                        <th style={styles.th}>Status</th>
+                    </tr>
+                    </thead>
 
-            {!loading && assets.length === 0 && <p>No assets found.</p>}
+                    <tbody>
+                    {assets.map((a) => {
+                        const isExpanded = expandId === a.id;
+                        return (
+                            <React.Fragment key={`asset-row-${a.id}`}>
+                                <tr
+                                    style={{...styles.row, cursor: "pointer"}}
+                                    onClick={() => toggleRow(a.id)}
+                                >
+                                    <td style={{...styles.td, width: 40}}>
+                                        {getAssetIcon(a.type)}
+                                    </td>
+                                    <td style={styles.td}>
+                                        <span style={styles.assetId}>{a.id}</span>
+                                    </td>
+                                    <td style={styles.td}>{a.type}</td>
+                                    <td style={styles.td}>{a.name}</td>
+                                    <td style={styles.td}>
+                                        <span style={styles.vendorBadge}>{a.vendor}</span>
+                                    </td>
+                                    <td style={{
+                                        ...styles.td,
+                                        color: getStatusColor(a.status),
+                                        fontWeight: 500,
+                                    }}>
+                                        {a.status}
+                                    </td>
+                                </tr>
 
-
-            {assets.length > 0 && (
-                <>
-                    <table style={styles.table}>
-                        <thead style={styles.thead}>
-                        <tr>
-                            <th style={styles.th}></th>
-                            <th style={styles.th}>ID</th>
-                            <th style={styles.th}>Type</th>
-                            <th style={styles.th}>Name</th>
-                            <th style={styles.th}>Vendor</th>
-                            <th style={styles.th}>Status</th>
-                        </tr>
-                        </thead>
-
-                        <tbody>
-                        {assets.map((a) => {
-                            const isExpanded = expandId === a.id;
-                            return (
-                                <React.Fragment key={`asset-row-${a.id}`}>
-                                    <tr
-                                        style={{cursor: "pointer"}}
-                                        onClick={() => toggleRow(a.id)}
-                                    >
-                                        <td style={{...styles.td, width: 32}}>
-                                            {getAssetIcon(a.type)}
+                                {isExpanded && (
+                                    <tr key={`asset-expanded-${a.id}`}>
+                                        <td style={styles.expandedTd} colSpan={6}>
+                                            <AssetMetadata asset={a}/>
                                         </td>
-                                        <td style={styles.td}>{a.id}</td>
-                                        <td style={styles.td}>{a.type}</td>
-                                        <td style={styles.td}>{a.data.name}</td>
-                                        <td style={styles.td}>{a.data.vendor}</td>
-                                        <td
-                                            style={{
-                                                ...styles.td,
-                                                color: getStatusColor(a.status),
-                                            }}
-                                        >{a.status}</td>
                                     </tr>
+                                )}
 
-                                    {isExpanded && (
-                                        <tr key={`asset-expanded-${a.id}`}>
-                                            <td style={styles.expandedTd} colSpan={6}>
-                                                <AssetMetadata asset={a}/>
-                                            </td>
-                                        </tr>
-                                    )}
+                            </React.Fragment>
+                        );
+                    })}
+                    </tbody>
+                </table>
+            </div>
 
-                                </React.Fragment>
-                            );
-                        })}
-                        </tbody>
-                    </table>
-                    <div style={styles.pagination}>
-                        <button
-                            disabled={!canPrev}
-                            onClick={() => setPage(p => p - 1)}
-                        >
-                            ◀ Prev
-                        </button>
+            <div style={styles.pagination}>
+                <button
+                    disabled={!canPrev}
+                    onClick={() => setPage(p => p - 1)}
+                    style={{
+                        ...styles.pageBtn,
+                        opacity: canPrev ? 1 : 0.4,
+                    }}
+                >
+                    Prev
+                </button>
 
-                        <span>
-                            Page {page} of {totalPages}
-                        </span>
-                        <button
-                            disabled={!canNext}
-                            onClick={() => setPage(p => p + 1)}
-                        >
-                            Next ▶
-                        </button>
-                    </div>
-        </>
-            )}
+                <span style={styles.pageInfo}>
+                    Page {page} of {totalPages}
+                </span>
 
-
+                <button
+                    disabled={!canNext}
+                    onClick={() => setPage(p => p + 1)}
+                    style={{
+                        ...styles.pageBtn,
+                        opacity: canNext ? 1 : 0.4,
+                    }}
+                >
+                    Next
+                </button>
+            </div>
         </div>
     )
 }
 
-const styles: { [key: string]: React.CSSProperties } = {
+const styles = {
     container: {
-        marginTop: 32,
+        backgroundColor: 'white',
+        borderRadius: '12px',
+        padding: '24px',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
     },
-    pagination: {
-        display: "flex",
-        gap: 12,
-        alignItems: "center",
-        justifyContent: "flex-end",
-        marginTop: 16,
+    loading: {
+        padding: '40px',
+        textAlign: 'center' as const,
+        color: '#6b7280',
+    },
+    errorContainer: {
+        textAlign: 'center' as const,
+        color: '#991b1b',
+        padding: '40px',
+    },
+    retryBtn: {
+        padding: '8px 16px',
+        cursor: 'pointer',
+    } as React.CSSProperties,
+    emptyContainer: {
+        textAlign: 'center' as const,
+        color: '#6b7280',
+        padding: '40px',
+    },
+    header: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '20px',
+    },
+    title: {
+        margin: 0,
+        fontSize: '20px',
+        fontWeight: 600,
+    },
+    totalCount: {
+        fontSize: '14px',
+        color: '#6b7280',
+    },
+    tableWrapper: {
+        overflowX: 'auto' as const,
     },
     table: {
-        width: "100%",
-        borderCollapse: "collapse" as const,
-        fontFamily: "Arial , sans-serif",
-        boxShadow: "0 2px 5px rgba(0,0,0,0.05)",
+        width: '100%',
+        borderCollapse: 'collapse' as const,
     },
-    thead: {
-        // backgroundColor: "#f5f5f5",
+    headerRow: {
+        backgroundColor: '#f9fafb',
+        borderBottom: '2px solid #e5e7eb',
     },
     th: {
-        borderBottom: "2px solid #ddd",
-        textAlign: "left" as const,
-        padding: "12px",
+        padding: '12px',
+        textAlign: 'left' as const,
+        fontSize: '12px',
+        fontWeight: 600,
+        color: '#6b7280',
+        textTransform: 'uppercase' as const,
+    },
+    row: {
+        borderBottom: '1px solid #f3f4f6',
     },
     td: {
-        borderBottom: "1px solid #eee",
-        padding: "12px",
+        padding: '12px',
+        fontSize: '14px',
     },
-    tr: {
-        transition: "background-color 0.2s ",
+    assetId: {
+        fontFamily: 'monospace',
+        fontSize: '12px',
+        color: '#6b7280',
     },
-    trHover: {
-        // backgroundColor: "#f9f9f9",
+    vendorBadge: {
+        padding: '2px 8px',
+        borderRadius: '4px',
+        fontSize: '12px',
+        backgroundColor: '#f3f4f6',
+        color: '#374151',
     },
     expandedTd: {
-        padding: "16px",
-        // backgroundColor: "#fafafa",
-        borderBottom: "1px solid #eee",
-    }
-}
+        padding: '16px 12px',
+        backgroundColor: '#fafafa',
+        borderBottom: '1px solid #e5e7eb',
+    },
+    pagination: {
+        display: 'flex',
+        gap: '12px',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        marginTop: '16px',
+        paddingTop: '16px',
+        borderTop: '1px solid #f3f4f6',
+    },
+    pageBtn: {
+        padding: '6px 14px',
+        fontSize: '13px',
+        border: '1px solid #e5e7eb',
+        backgroundColor: 'white',
+        borderRadius: '6px',
+        cursor: 'pointer',
+    } as React.CSSProperties,
+    pageInfo: {
+        fontSize: '13px',
+        color: '#6b7280',
+    },
+};
