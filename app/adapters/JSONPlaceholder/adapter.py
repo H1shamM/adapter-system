@@ -15,7 +15,8 @@ class JSONPlaceholderAdapter(BaseAdapter):
 
     async def fetch_raw(self) -> List[Dict]:
         try:
-            users = await self.client.get('/users').json()
+            response = await self.client.get('/users')
+            users = response.json()
             return users
         except Exception as e:
             raise FetchError("JSONPlaceholderAdapter fetch failed") from e

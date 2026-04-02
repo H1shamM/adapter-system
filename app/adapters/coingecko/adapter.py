@@ -1,33 +1,33 @@
 from datetime import datetime
-from typing import List,Dict
+from typing import List, Dict
+
 from app.adapters.base import BaseAdapter, AdapterConfig
+from app.adapters.errors import FetchError
 from app.config import settings
 from app.models.assets import NormalizedAsset
-from app.adapters.errors import FetchError
 
 
 class CoinGeckoAdapter(BaseAdapter):
 
-    adapter_name = 'coingecko'
+    adapter_type = 'coingecko'
 
     def __init__(self, config: AdapterConfig):
         super().__init__(config)
-        self.currency = getattr(self.config,"currency","usd")
+        self.currency = getattr(self.config, "currency", "usd")
 
     async def connect(self):
         await self.client.get('/ping')
 
     async def fetch_raw(self) -> List[Dict]:
         try:
-            data = await self.client.get(
+            response = await self.client.get(
                 f"/api/v3/coins/markets?vs_currency={self.currency}&order=market_cap_desc"
-            ).json()
+            )
+            data = response.json()
 
             return data
         except Exception as e:
             raise FetchError("CoinGecko fetch failed") from e
-
-
 
     def normalize(self, raw_data: List[Dict]) -> List[NormalizedAsset]:
         assets = []
@@ -46,4 +46,3 @@ class CoinGeckoAdapter(BaseAdapter):
             assets.append(asset)
 
         return assets
-
