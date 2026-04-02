@@ -59,6 +59,10 @@ class AdapterConfigStore:
         cursor = self.collection.find()
         return [self._sanitize(doc) for doc in cursor]
 
+    def delete(self, adapter_id: str):
+        """Delete an adapter instance by ID."""
+        self.collection.delete_one({"adapter_id": adapter_id})
+
     def set_next_sync(self, adapter_id: str, sync_interval: int):
 
         next_sync = datetime.utcnow() + timedelta(seconds=sync_interval)

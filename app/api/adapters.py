@@ -146,6 +146,24 @@ async def get_adapter(
     }
 
 
+@router.delete("/adapters/{adapter_id}")
+async def delete_adapter(
+        adapter_id: str,
+        store: AdapterConfigStore = Depends(get_adapter_config_store),
+        current_user=Depends(get_current_user)
+):
+    config = store.get(adapter_id)
+    if not config:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Adapter instance '{adapter_id}' not found",
+        )
+
+    store.delete(adapter_id)
+    logger.info("adapter_deleted", adapter_id=adapter_id)
+    return {"status": "deleted", "adapter_id": adapter_id}
+
+
 @router.get("/adapters/{name}/schema")
 async def get_adapter_schema(name: str):
     return ADAPTER_SCHEMAS.get(name, {})

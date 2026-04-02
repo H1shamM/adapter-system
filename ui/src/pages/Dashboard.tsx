@@ -140,7 +140,7 @@ export default function Dashboard() {
             )}
 
             {/* Stats Cards */}
-            <div style={styles.statsGrid}>
+            <div className="stats-grid">
                 <StatCard
                     icon={<Database size={24}/>}
                     title="Total Adapters"
@@ -172,7 +172,7 @@ export default function Dashboard() {
             </div>
 
             {/* Tab Navigation */}
-            <div style={styles.tabBar}>
+            <div className="tab-bar">
                 {TABS.map(tab => (
                     <button
                         key={tab.id}
@@ -228,6 +228,8 @@ const styles = {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
+        flexWrap: 'wrap' as const,
+        gap: '12px',
         marginBottom: '24px',
     },
     title: {
@@ -244,6 +246,7 @@ const styles = {
         border: 'none',
         borderRadius: '8px',
         cursor: 'pointer',
+        whiteSpace: 'nowrap' as const,
     } as React.CSSProperties,
     errorBanner: {
         padding: '12px 16px',
@@ -267,18 +270,19 @@ const styles = {
     } as React.CSSProperties,
     statsGrid: {
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-        gap: '20px',
+        gridTemplateColumns: 'repeat(4, 1fr)',
+        gap: '16px',
         marginBottom: '24px',
-    },
+    } as React.CSSProperties,
     statCard: {
         backgroundColor: 'white',
-        padding: '20px',
+        padding: '16px 20px',
         borderRadius: '12px',
         display: 'flex',
         alignItems: 'center',
-        gap: '16px',
+        gap: '14px',
         boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+        minWidth: 0,
     },
     statIcon: {
         padding: '12px',
@@ -317,7 +321,9 @@ const styles = {
         fontWeight: 500,
         color: '#6b7280',
         backgroundColor: 'transparent',
-        border: 'none',
+        borderTop: 'none',
+        borderLeft: 'none',
+        borderRight: 'none',
         borderBottom: '2px solid transparent',
         marginBottom: '-2px',
         cursor: 'pointer',
@@ -325,7 +331,7 @@ const styles = {
     } as React.CSSProperties,
     tabActive: {
         color: '#3b82f6',
-        borderBottomColor: '#3b82f6',
+        borderBottom: '2px solid #3b82f6',
         fontWeight: 600,
     },
 };

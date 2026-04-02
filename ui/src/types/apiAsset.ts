@@ -1,9 +1,18 @@
 export interface ApiAsset{
-    asset_id:string,
-    asset_type: string,
+    id: string,
+    type: string,
     name?: string,
     status: string,
-    vendor: string,
+    data?: {
+        name?: string,
+        vendor?: string,
+        last_seen?: string,
+        metadata?: Record<string, unknown>,
+    },
+    // Legacy flat fields (some endpoints may still use these)
+    asset_id?: string,
+    asset_type?: string,
+    vendor?: string,
     last_seen?: string,
     metadata?: Record<string, unknown>,
 }

@@ -1,8 +1,11 @@
 import {useEffect, useState} from 'react';
-import {getAdapterInstances, triggerSync} from '../api/adapters';
-import {getAdapterHealth} from '../api/adapters';
+import {getAdapterInstances, getAdapterSchema, createAdapter, deleteAdapter} from '../api/adapters';
 import {HealthBadge} from './HealthBadge';
-import {Settings, Play, RefreshCw} from 'lucide-react';
+import {AdapterConfigForm} from './AdapterConfigForm';
+import {useAdapterSync} from '../hooks/useAdapterSync';
+import {useAdapterConfig} from '../hooks/useAdapterConfig';
+import {useAdapterHealth} from '../hooks/useAdapterHealth';
+import {Settings, Play, RefreshCw, Plus, Trash2, X, CheckCircle, XCircle, ChevronDown, ChevronRight} from 'lucide-react';
 
 interface AdapterInstance {
     adapter_id: string;
@@ -20,8 +23,11 @@ interface GroupedAdapters {
 
 export default function AdaptersTab() {
     const [instances, setInstances] = useState<AdapterInstance[]>([]);
+    const [supportedTypes, setSupportedTypes] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [showCreateForm, setShowCreateForm] = useState(false);
+    const [collapsedTypes, setCollapsedTypes] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         loadInstances();
@@ -32,6 +38,7 @@ export default function AdaptersTab() {
         try {
             const data = await getAdapterInstances();
             setInstances(data.instances || []);
+            setSupportedTypes(data.supported_types || []);
             setError(null);
         } catch (err) {
             console.error('Failed to load adapter instances', err);
@@ -61,76 +68,197 @@ export default function AdaptersTab() {
         );
     }
 
-    if (instances.length === 0) {
-        return (
-            <div style={styles.emptyContainer}>
-                No adapter instances configured. Use the API or setup script to add adapters.
-            </div>
-        );
-    }
-
     return (
         <div>
             <div style={styles.header}>
                 <span style={styles.subtitle}>
                     {instances.length} instances across {Object.keys(grouped).length} adapter types
                 </span>
-                <button onClick={loadInstances} style={styles.refreshBtn}>
-                    <RefreshCw size={14}/>
-                    Refresh
-                </button>
+                <div style={{display: 'flex', gap: '8px'}}>
+                    <button
+                        onClick={() => setShowCreateForm(true)}
+                        style={styles.createBtn}
+                    >
+                        <Plus size={14}/>
+                        Create Adapter
+                    </button>
+                    <button onClick={loadInstances} style={styles.refreshBtn}>
+                        <RefreshCw size={14}/>
+                        Refresh
+                    </button>
+                </div>
             </div>
 
-            {Object.entries(grouped).map(([type, typeInstances]) => (
-                <div key={type} style={styles.typeSection}>
-                    <h3 style={styles.typeTitle}>
-                        <Settings size={16}/>
-                        {type}
-                        <span style={styles.typeCount}>{typeInstances.length} instance{typeInstances.length !== 1 ? 's' : ''}</span>
-                    </h3>
-                    <div style={styles.cardsGrid}>
-                        {typeInstances.map(inst => (
-                            <InstanceCard
-                                key={inst.adapter_id}
-                                instance={inst}
-                                onSyncTriggered={loadInstances}
-                            />
-                        ))}
-                    </div>
+            {showCreateForm && (
+                <CreateAdapterPanel
+                    supportedTypes={supportedTypes}
+                    onCreated={() => {
+                        setShowCreateForm(false);
+                        loadInstances();
+                    }}
+                    onCancel={() => setShowCreateForm(false)}
+                />
+            )}
+
+            {instances.length === 0 && !showCreateForm && (
+                <div style={styles.emptyContainer}>
+                    No adapter instances configured. Click "Create Adapter" to get started.
                 </div>
-            ))}
+            )}
+
+            {Object.entries(grouped).map(([type, typeInstances]) => {
+                const isCollapsed = collapsedTypes.has(type);
+                return (
+                    <div key={type} style={styles.typeSection}>
+                        <h3
+                            style={styles.typeTitle}
+                            onClick={() => {
+                                setCollapsedTypes(prev => {
+                                    const next = new Set(prev);
+                                    next.has(type) ? next.delete(type) : next.add(type);
+                                    return next;
+                                });
+                            }}
+                        >
+                            {isCollapsed ? <ChevronRight size={16}/> : <ChevronDown size={16}/>}
+                            <Settings size={16}/>
+                            {type}
+                            <span style={styles.typeCount}>{typeInstances.length} instance{typeInstances.length !== 1 ? 's' : ''}</span>
+                        </h3>
+                        {!isCollapsed && (
+                            <div className="adapter-cards-grid">
+                                {typeInstances.map(inst => (
+                                    <InstanceCard
+                                        key={inst.adapter_id}
+                                        instance={inst}
+                                        onChanged={loadInstances}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                );
+            })}
         </div>
     );
 }
 
-interface InstanceCardProps {
-    instance: AdapterInstance;
-    onSyncTriggered: () => void;
+// --- Create Adapter Panel ---
+
+interface CreateAdapterPanelProps {
+    supportedTypes: string[];
+    onCreated: () => void;
+    onCancel: () => void;
 }
 
-function InstanceCard({instance, onSyncTriggered}: InstanceCardProps) {
-    const [health, setHealth] = useState<"HEALTHY" | "UNHEALTHY" | "UNKNOWN" | "DISABLED">('UNKNOWN');
-    const [syncing, setSyncing] = useState(false);
-    const [syncResult, setSyncResult] = useState<{status: string; message: string} | null>(null);
+function CreateAdapterPanel({supportedTypes, onCreated, onCancel}: CreateAdapterPanelProps) {
+    const [selectedType, setSelectedType] = useState('');
+    const [schema, setSchema] = useState<Record<string, unknown>>({});
+    const [loadingSchema, setLoadingSchema] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        getAdapterHealth(instance.adapter_id)
-            .then(data => setHealth(data.status))
-            .catch(() => setHealth('UNKNOWN'));
-    }, [instance.adapter_id]);
-
-    async function handleSync() {
-        setSyncing(true);
-        setSyncResult(null);
+    async function handleTypeSelect(type: string) {
+        setSelectedType(type);
+        setLoadingSchema(true);
+        setError(null);
         try {
-            await triggerSync(instance.adapter_id);
-            setSyncResult({status: 'success', message: 'Sync queued'});
-            onSyncTriggered();
+            const schemaData = await getAdapterSchema(type);
+            setSchema(schemaData);
         } catch (err) {
-            console.error('Sync failed', err);
-            setSyncResult({status: 'error', message: 'Failed to trigger sync'});
+            console.error('Failed to load schema', err);
+            setError('Failed to load adapter schema');
         } finally {
-            setSyncing(false);
+            setLoadingSchema(false);
+        }
+    }
+
+    async function handleSave(config: Record<string, unknown>) {
+        setSaving(true);
+        setError(null);
+        try {
+            await createAdapter({adapter_type: selectedType, ...config});
+            onCreated();
+        } catch (err) {
+            console.error('Failed to create adapter', err);
+            setError('Failed to create adapter');
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    return (
+        <div style={styles.createPanel}>
+            <div style={styles.createPanelHeader}>
+                <h3 style={{margin: 0, fontSize: '16px', fontWeight: 600}}>Create New Adapter</h3>
+                <button onClick={onCancel} style={styles.closeBtn}>
+                    <X size={16}/>
+                </button>
+            </div>
+
+            {error && (
+                <div style={styles.formError}>{error}</div>
+            )}
+
+            <div style={styles.typeSelector}>
+                <label style={styles.formLabel}>Adapter Type</label>
+                <div style={styles.typeButtons}>
+                    {supportedTypes.map(type => (
+                        <button
+                            key={type}
+                            onClick={() => handleTypeSelect(type)}
+                            style={{
+                                ...styles.typeButton,
+                                ...(selectedType === type ? styles.typeButtonActive : {}),
+                            }}
+                        >
+                            {type}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {loadingSchema && <div style={styles.loading}>Loading schema...</div>}
+
+            {selectedType && Object.keys(schema).length > 0 && !loadingSchema && (
+                <div style={{marginTop: '16px'}}>
+                    <AdapterConfigForm
+                        adapterName={selectedType}
+                        config={{}}
+                        schema={schema}
+                        onSave={handleSave}
+                    />
+                    {saving && <div style={{marginTop: '8px', color: '#6b7280', fontSize: '13px'}}>Saving...</div>}
+                </div>
+            )}
+        </div>
+    );
+}
+
+// --- Instance Card ---
+
+interface InstanceCardProps {
+    instance: AdapterInstance;
+    onChanged: () => void;
+}
+
+function InstanceCard({instance, onChanged}: InstanceCardProps) {
+    const health = useAdapterHealth(instance.adapter_id);
+    const sync = useAdapterSync(instance.adapter_id);
+    const config = useAdapterConfig(instance.adapter_id);
+    const [deleting, setDeleting] = useState(false);
+
+    async function handleDelete() {
+        if (!confirm(`Delete adapter "${instance.adapter_id}"? This cannot be undone.`)) return;
+        setDeleting(true);
+        try {
+            await deleteAdapter(instance.adapter_id);
+            onChanged();
+        } catch (err) {
+            console.error('Delete failed', err);
+            alert('Failed to delete adapter');
+        } finally {
+            setDeleting(false);
         }
     }
 
@@ -140,6 +268,12 @@ function InstanceCard({instance, onSyncTriggered}: InstanceCardProps) {
         low: {bg: '#e5e7eb', color: '#374151'},
     };
     const pStyle = priorityColors[instance.priority] || priorityColors.low;
+
+    const taskStatus = sync.task?.status;
+    const statusColor = taskStatus === 'SUCCESS' ? '#10b981'
+        : taskStatus === 'FAILURE' ? '#ef4444'
+        : taskStatus === 'STARTED' || taskStatus === 'RUNNING' ? '#f59e0b'
+        : undefined;
 
     return (
         <div style={styles.card}>
@@ -179,29 +313,77 @@ function InstanceCard({instance, onSyncTriggered}: InstanceCardProps) {
                 </div>
             </div>
 
+            {/* Live sync task status */}
+            {sync.task && (
+                <div style={{padding: '8px 16px', fontSize: '13px', color: statusColor}}>
+                    {taskStatus === 'SUCCESS' && (
+                        <span style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
+                            <CheckCircle size={14}/>
+                            Sync completed
+                            {sync.task.result && (
+                                <span> ({sync.task.result.inserted} inserted, {sync.task.result.modified} updated)</span>
+                            )}
+                        </span>
+                    )}
+                    {taskStatus === 'FAILURE' && (
+                        <span style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
+                            <XCircle size={14}/>
+                            Sync failed
+                        </span>
+                    )}
+                    {(taskStatus === 'STARTED' || taskStatus === 'RUNNING') && (
+                        <span>Syncing...</span>
+                    )}
+                </div>
+            )}
+
+            {sync.lastSyncAt && (
+                <div style={{padding: '0 16px 8px', fontSize: '12px', color: '#6b7280'}}>
+                    Last sync: {sync.lastSyncAt.toLocaleTimeString()}
+                </div>
+            )}
+
+            {/* Inline config editor */}
+            {config.isOpen && (
+                <div style={{padding: '12px 16px', borderTop: '1px solid #f3f4f6'}}>
+                    <AdapterConfigForm
+                        adapterName={instance.adapter_type}
+                        config={config.config}
+                        schema={config.schema}
+                        onSave={config.save}
+                    />
+                </div>
+            )}
+
             <div style={styles.cardFooter}>
                 <button
-                    onClick={handleSync}
-                    disabled={syncing || !instance.enabled}
+                    onClick={sync.sync}
+                    disabled={sync.loading || !instance.enabled}
                     style={{
                         ...styles.syncBtn,
-                        opacity: (syncing || !instance.enabled) ? 0.5 : 1,
+                        opacity: (sync.loading || !instance.enabled) ? 0.5 : 1,
                     }}
                 >
                     <Play size={14}/>
-                    {syncing ? 'Queuing...' : 'Sync Now'}
+                    {sync.loading ? 'Queuing...' : 'Sync Now'}
+                </button>
+                <button
+                    onClick={config.isOpen ? config.close : config.open}
+                    disabled={config.loading}
+                    style={styles.configBtn}
+                    title="Configure"
+                >
+                    <Settings size={14}/>
+                </button>
+                <button
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    style={styles.deleteBtn}
+                    title="Delete adapter"
+                >
+                    <Trash2 size={14}/>
                 </button>
             </div>
-
-            {syncResult && (
-                <div style={{
-                    ...styles.syncResultBanner,
-                    backgroundColor: syncResult.status === 'success' ? '#d1fae5' : '#fee2e2',
-                    color: syncResult.status === 'success' ? '#065f46' : '#991b1b',
-                }}>
-                    {syncResult.message}
-                </div>
-            )}
         </div>
     );
 }
@@ -255,6 +437,19 @@ const styles = {
         fontSize: '14px',
         color: '#6b7280',
     },
+    createBtn: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+        padding: '8px 14px',
+        fontSize: '13px',
+        fontWeight: 500,
+        backgroundColor: '#3b82f6',
+        color: 'white',
+        border: 'none',
+        borderRadius: '6px',
+        cursor: 'pointer',
+    } as React.CSSProperties,
     refreshBtn: {
         display: 'flex',
         alignItems: 'center',
@@ -270,6 +465,66 @@ const styles = {
         padding: '8px 16px',
         cursor: 'pointer',
     } as React.CSSProperties,
+    // Create panel
+    createPanel: {
+        backgroundColor: 'white',
+        borderRadius: '12px',
+        border: '1px solid #e5e7eb',
+        padding: '20px',
+        marginBottom: '24px',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+    },
+    createPanelHeader: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '16px',
+    },
+    closeBtn: {
+        padding: '4px',
+        border: 'none',
+        backgroundColor: 'transparent',
+        cursor: 'pointer',
+        color: '#6b7280',
+    } as React.CSSProperties,
+    formError: {
+        padding: '8px 12px',
+        marginBottom: '12px',
+        backgroundColor: '#fef2f2',
+        color: '#991b1b',
+        borderRadius: '6px',
+        fontSize: '13px',
+    },
+    formLabel: {
+        display: 'block',
+        fontSize: '13px',
+        fontWeight: 600,
+        color: '#374151',
+        marginBottom: '8px',
+    },
+    typeSelector: {
+        marginBottom: '8px',
+    },
+    typeButtons: {
+        display: 'flex',
+        flexWrap: 'wrap' as const,
+        gap: '8px',
+    },
+    typeButton: {
+        padding: '6px 14px',
+        fontSize: '13px',
+        border: '1px solid #e5e7eb',
+        backgroundColor: 'white',
+        borderRadius: '6px',
+        cursor: 'pointer',
+        textTransform: 'capitalize' as const,
+    } as React.CSSProperties,
+    typeButtonActive: {
+        backgroundColor: '#3b82f6',
+        color: 'white',
+        borderColor: '#3b82f6',
+    },
+    // Type sections
     typeSection: {
         marginBottom: '32px',
     },
@@ -281,6 +536,8 @@ const styles = {
         fontWeight: 600,
         marginBottom: '16px',
         textTransform: 'capitalize' as const,
+        cursor: 'pointer',
+        userSelect: 'none' as const,
     },
     typeCount: {
         fontSize: '13px',
@@ -292,6 +549,7 @@ const styles = {
         gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
         gap: '16px',
     },
+    // Instance cards
     card: {
         backgroundColor: 'white',
         borderRadius: '12px',
@@ -335,6 +593,8 @@ const styles = {
         fontWeight: 500,
     },
     cardFooter: {
+        display: 'flex',
+        gap: '8px',
         padding: '12px 16px',
         borderTop: '1px solid #f3f4f6',
     },
@@ -342,7 +602,7 @@ const styles = {
         display: 'flex',
         alignItems: 'center',
         gap: '6px',
-        width: '100%',
+        flex: 1,
         justifyContent: 'center',
         padding: '8px',
         fontSize: '13px',
@@ -350,6 +610,30 @@ const styles = {
         backgroundColor: '#3b82f6',
         color: 'white',
         border: 'none',
+        borderRadius: '6px',
+        cursor: 'pointer',
+    } as React.CSSProperties,
+    configBtn: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '8px',
+        fontSize: '13px',
+        backgroundColor: 'white',
+        color: '#6b7280',
+        border: '1px solid #e5e7eb',
+        borderRadius: '6px',
+        cursor: 'pointer',
+    } as React.CSSProperties,
+    deleteBtn: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '8px',
+        fontSize: '13px',
+        backgroundColor: 'white',
+        color: '#ef4444',
+        border: '1px solid #fecaca',
         borderRadius: '6px',
         cursor: 'pointer',
     } as React.CSSProperties,

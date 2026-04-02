@@ -1,6 +1,8 @@
 import {useEffect, useState} from "react";
 import type {Asset} from "../types/asset.ts";
+import type {ApiAsset} from "../types/apiAsset.ts";
 import {getAssets} from "../api/adapters.ts";
+import {mapApiAsset} from "../mappers/assetMapper.ts";
 
 
 export function useAssets(page: number, limit: number) {
@@ -23,7 +25,7 @@ export function useAssets(page: number, limit: number) {
             try {
                 const data = await getAssets({page, limit})
                 if (!cancelled) {
-                    setAssets(data.results)
+                    setAssets(data.results.map((r: ApiAsset) => mapApiAsset(r)))
                     setTotal(data.total)
                 }
             } catch (err: unknown) {
