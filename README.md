@@ -55,6 +55,12 @@ A production-grade **pluggable data ingestion platform** built with hexagonal (P
 | Build | Vite 7 | Frontend bundling |
 | Container | Docker + Docker Compose | Multi-service orchestration |
 
+## Screenshots
+
+![Adapter System Dashboard](docs/dashboard-screenshot.png)
+
+*Real-time dashboard showing worker distribution, adapter instances, and live sync monitor with full sync history.*
+
 ## Features
 
 - **Multi-instance adapters** -- Multiple instances of the same adapter type with independent configs and schedules
