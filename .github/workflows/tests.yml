@@ -93,9 +93,6 @@ jobs:
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
 
       - name: Run integration tests
-        # Integration tests have known pre-existing issues; soft-fail until
-        # Sprint 1 follow-ups land. The job still runs so we get signal.
-        continue-on-error: true
         env:
           MONGO_URL: mongodb://localhost:27017
           CELERY_BROKER_URL: amqp://guest:guest@localhost:5672//
