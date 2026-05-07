@@ -68,4 +68,44 @@ python scripts/monitor_scaling.py        # Real-time monitoring
 - Environment variables defined in `.env` / `.env.prod`, loaded via Pydantic `BaseSettings` in `app/config/settings.py`.
 - Adapter instance configs stored in MongoDB (keyed by `adapter_id`).
 - `pytest.ini`: `asyncio_mode = auto`, test discovery in `app/tests`.
+- `pyproject.toml`: black, isort, mypy, coverage config (`line-length = 100`).
+- `.flake8`: `max-line-length = 100`, ignores E203/W503 for black compatibility.
 - Default login: `admin` / `admin123` (hardcoded demo user in `app/auth/router.py`).
+
+## Professional Engineering Workflow
+
+This repo follows a documented sprint-based engineering process. Read these before non-trivial work:
+
+- `docs/PROFESSIONAL_WORKFLOW.md` -- sprint cycle, architecture discipline, quality gates
+- `docs/GITHUB_WORKFLOW.md` -- branching, PR mechanics, `gh` commands
+- `docs/PROGRESS.md` -- 4-week sprint roadmap, current focus
+- `docs/USER_STORY_TEMPLATE.md` -- structure for new feature issues
+- `docs/BUG_REPORT_TEMPLATE.md` -- structure for bug issues
+
+**CI/CD**: GitHub Actions in `.github/workflows/` runs `tests.yml` (pytest + coverage) and `lint.yml` (black, isort, flake8, mypy) on every PR.
+
+**Before pushing**:
+
+```bash
+# Backend
+black app/ scripts/ runner.py
+isort app/ scripts/ runner.py
+flake8 app/ scripts/ runner.py
+pytest
+
+# Frontend
+cd ui && npm run lint && npm run build
+```
+
+### Available skills
+
+Use these skills instead of writing scaffolding by hand:
+
+- `add-adapter` -- scaffolds a new adapter (BaseAdapter + config + factory + registry entries). See `.claude/skills/add-adapter/SKILL.md`.
+- `add-adapter-tests` -- generates unit + integration tests for an existing adapter. See `.claude/skills/add-adapter-tests/SKILL.md`.
+
+Personal-account skills (also available):
+
+- `orqestra-create-user-story` -- structured INVEST story for a GitHub issue
+- `orqestra-create-bug` -- structured bug report
+- `github-pr-workflow` -- end-to-end PR + post-merge issue housekeeping

@@ -1,0 +1,20 @@
+[flake8]
+max-line-length = 100
+extend-ignore =
+    # E203: whitespace before ':' (conflicts with black)
+    E203,
+    # W503: line break before binary operator (conflicts with black)
+    W503,
+exclude =
+    .git,
+    .venv,
+    __pycache__,
+    .pytest_cache,
+    build,
+    dist,
+    ui,
+    node_modules,
+    app/tests/fixtures,
+per-file-ignores =
+    # Allow unused imports in __init__.py (re-exports)
+    __init__.py:F401
