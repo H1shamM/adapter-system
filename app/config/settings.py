@@ -32,8 +32,10 @@ class DatabaseSettings(BaseSettings):
         description="Min Connection in pool"
     )
 
+    # Field names already encode the MONGO_ namespace; using env_prefix here
+    # would cause a doubled prefix (MONGO_MONGO_URL) and silently ignore
+    # env-var overrides. See issue #6.
     model_config = SettingsConfigDict(
-        env_prefix="MONGO_",
         case_sensitive=False,
         extra="ignore"
     )
@@ -94,8 +96,8 @@ class RedisSettings(BaseSettings):
         le=100,
     )
 
+    # Field names already encode REDIS_; env_prefix would double it. See #6.
     model_config = SettingsConfigDict(
-        env_prefix="REDIS_",
         case_sensitive=False,
         extra="ignore"
     )
@@ -154,8 +156,8 @@ class APISettings(BaseSettings):
         description="Limit per minute"
     )
 
+    # Field names already encode API_; env_prefix would double it. See #6.
     model_config = SettingsConfigDict(
-        env_prefix="API_",
         case_sensitive=False,
         extra="ignore"
     )
@@ -178,8 +180,8 @@ class LoggingSettings(BaseSettings):
         description="Log file"
     )
 
+    # Field names already encode LOG_; env_prefix would double it. See #6.
     model_config = SettingsConfigDict(
-        env_prefix="LOG_",
         case_sensitive=False,
         extra="ignore"
     )
