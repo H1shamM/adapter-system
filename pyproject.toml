@@ -1,0 +1,60 @@
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+    \.venv
+  | \.git
+  | \.pytest_cache
+  | __pycache__
+  | ui
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+known_first_party = ["app"]
+skip = [".venv", ".git", "__pycache__", "ui", "node_modules"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["app/tests"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+]
+markers = [
+    "integration: tests that require MongoDB/RabbitMQ",
+    "slow: tests that take more than a few seconds",
+]
+
+[tool.coverage.run]
+source = ["app"]
+omit = [
+    "app/tests/*",
+    "app/__init__.py",
+    "*/migrations/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+exclude = [
+    "ui/",
+    ".venv/",
+    "app/tests/fixtures/",
+]

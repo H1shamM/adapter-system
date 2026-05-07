@@ -1,0 +1,18 @@
+# Development dependencies (linting, formatting, testing tools).
+# Install runtime deps first: pip install -r requirements.txt
+# Then dev:                  pip install -r requirements-dev.txt
+
+# Testing
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+pytest-cov>=5.0.0
+pytest-mock>=3.14.0
+
+# Formatting & linting
+black>=24.3.0
+isort>=5.13.0
+flake8>=7.0.0
+mypy>=1.10.0
+
+# Type stubs (for mypy)
+types-requests
