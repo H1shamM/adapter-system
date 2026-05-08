@@ -31,7 +31,11 @@ def check_and_queue_due_adapters():
 
             task = sync_adapter_task.delay(adapter_id, adapter_type, adapter, sync_id)
 
-            history.start_sync(sync_id=sync_id, adapter=adapter_id)
+            history.start_sync(
+                sync_id=sync_id,
+                adapter=adapter_id,
+                estimated_duration=adapter.get("sync_duration_seconds"),
+            )
 
             queued += 1
 

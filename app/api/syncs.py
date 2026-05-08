@@ -6,7 +6,10 @@ from app.api.errors import NotFoundException
 from app.api.schemas.syncs import SyncStatusResponse
 from app.auth.dependencies import get_current_user
 from app.storage.sync_history import SyncHistoryStore
+from app.tasks.core import app as celery_app
+from app.utils.logging import get_logger
 
+logger = get_logger(__name__)
 router = APIRouter()
 
 
@@ -52,6 +55,45 @@ async def get_sync_summary(
         )
 
     return summary
+
+
+@router.get("/syncs/stats")
+async def get_sync_stats(
+    store: SyncHistoryStore = Depends(get_sync_history_store),
+    current_user=Depends(get_current_user),
+):
+    """Real-time stats from Celery workers and sync history."""
+    active_tasks = 0
+    reserved_tasks = 0
+    workers = {}
+
+    try:
+        inspect = celery_app.control.inspect(timeout=2.0)
+        active = inspect.active() or {}
+        reserved = inspect.reserved() or {}
+
+        for worker_name, tasks in active.items():
+            count = len(tasks)
+            active_tasks += count
+            workers[worker_name] = {"active": count, "reserved": 0}
+
+        for worker_name, tasks in reserved.items():
+            count = len(tasks)
+            reserved_tasks += count
+            if worker_name in workers:
+                workers[worker_name]["reserved"] = count
+            else:
+                workers[worker_name] = {"active": 0, "reserved": count}
+
+    except Exception as e:
+        logger.warning("celery_inspect_failed", error=str(e))
+
+    return {
+        "active_tasks": active_tasks,
+        "queue_depth": reserved_tasks,
+        "worker_count": len(workers),
+        "workers": workers,
+    }
 
 
 @router.get("/syncs/{sync_id}")

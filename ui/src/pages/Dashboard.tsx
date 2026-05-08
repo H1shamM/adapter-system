@@ -1,7 +1,7 @@
 import {useEffect, useState} from "react";
 import {Activity, Database, Clock, Zap, BarChart3, Settings, Package, Radio} from "lucide-react";
 import {getAdapterInstances, triggerAllSyncs} from '../api/adapters';
-import {getSyncHistory} from '../api/syncs';
+import {getSyncStats} from '../api/syncs';
 import AdapterInstancesGrid from '../components/AdapterInstancesGrid';
 import LiveSyncMonitor from '../components/LiveSyncMonitor';
 import WorkerVisualization from '../components/WorkerVisualization';
@@ -56,20 +56,16 @@ export default function Dashboard() {
 
     async function loadDashboardStats() {
         try {
-            const [instances, syncs] = await Promise.all([
+            const [instances, syncStats] = await Promise.all([
                 getAdapterInstances(),
-                getSyncHistory(200),
+                getSyncStats(),
             ]);
-
-            const activeSyncs = Array.isArray(syncs)
-                ? syncs.filter((s: {status: string}) => s.status === 'STARTED').length
-                : 0;
 
             setStats({
                 totalAdapters: instances.total || 0,
-                activeSyncs,
-                queueDepth: 0,
-                capacity: 40
+                activeSyncs: syncStats.active_tasks || 0,
+                queueDepth: syncStats.queue_depth || 0,
+                capacity: (syncStats.worker_count || 4) * 10,
             });
             setError(null);
         } catch (err) {

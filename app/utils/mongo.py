@@ -8,7 +8,7 @@ def serialize_mongo(value):
         return str(value)
 
     if isinstance(value, datetime):
-        return value.isoformat()
+        return value.isoformat() + "Z"
 
     if isinstance(value, list):
         return [serialize_mongo(v) for v in value]

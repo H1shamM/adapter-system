@@ -10,6 +10,7 @@ interface SyncRecord {
     started_at: string;
     finished_at: string | null;
     duration_ms: number | null;
+    estimated_duration: number | null;
 }
 
 export default function LiveSyncMonitor() {
@@ -129,15 +130,16 @@ function ActiveSyncCard({sync}: { sync: SyncRecord }) {
 
     useEffect(() => {
         const interval = setInterval(() => {
-            const start = new Date(sync.started_at).getTime();
-            const now = new Date().getTime();
+            const utcTimestamp = sync.started_at.endsWith('Z') ? sync.started_at : sync.started_at + 'Z';
+            const start = new Date(utcTimestamp).getTime();
+            const now = Date.now();
             setElapsed(Math.floor((now - start) / 1000))
         }, 1000);
 
         return () => clearInterval(interval);
     }, [sync.started_at]);
 
-    const estimatedTotal = 30 * 60;
+    const estimatedTotal = sync.estimated_duration || 30 * 60;
     const progress = Math.min((elapsed / estimatedTotal) * 100, 99);
 
     return (
