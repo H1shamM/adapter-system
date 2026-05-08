@@ -8,5 +8,9 @@ export async function getSummary ( ) {
 export async function getSyncHistory(limit:number = 100) {
     const res = await api.get("/syncs/history", {params: {limit}})
     return res.data;
-    
+}
+
+export async function getSyncStats() {
+    const res = await api.get("/syncs/stats");
+    return res.data;
 }

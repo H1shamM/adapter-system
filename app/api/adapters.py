@@ -51,6 +51,7 @@ async def trigger_sync(
         history.start_sync(
             sync_id=sync_id,
             adapter=adapter_id,
+            estimated_duration=config.get("sync_duration_seconds"),
         )
 
     except OperationalError:

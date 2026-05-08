@@ -22,7 +22,7 @@ class SyncHistoryStore:
     def _sanitize(self, doc: dict | None) -> dict | None:
         return serialize_mongo(doc)
 
-    def start_sync(self, *, sync_id: str, adapter: str):
+    def start_sync(self, *, sync_id: str, adapter: str, estimated_duration: int | None = None):
         now = datetime.utcnow()
 
         self.collection.insert_one(
@@ -33,6 +33,7 @@ class SyncHistoryStore:
                 "started_at": now,
                 "finished_at": None,
                 "duration_ms": None,
+                "estimated_duration": estimated_duration,
                 "result": None,
                 "error": None,
             }
