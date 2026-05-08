@@ -4,6 +4,7 @@ from typing import Dict, List
 
 from app.adapters.base import AdapterConfig, BaseAdapter
 from app.config import settings
+from app.models.assets import NormalizedAsset
 
 
 class MockConfig(AdapterConfig):
@@ -12,23 +13,24 @@ class MockConfig(AdapterConfig):
 
 
 class MockAdapter(BaseAdapter):
-    def connect(self) -> bool:
-        return True  # Always connects
+    async def connect(self) -> None:
+        return None
 
-    def fetch_raw(self) -> List[Dict]:
+    async def fetch_raw(self) -> List[Dict]:
         return [self._generate_mock_asset() for _ in range(self.config.num_assets)]
 
-    def normalize(self, raw_data: List[Dict]) -> List[Dict]:
+    def normalize(self, raw_data: List[Dict]) -> List[NormalizedAsset]:
         return [
-            {
-                "asset_id": f"mock_{asset['type']}_{asset['id']}",
-                "customer_id": settings.customer_id,
-                "name": asset["name"],
-                "type": asset["type"],
-                "status": random.choice(["ACTIVE", "INACTIVE"]),
-                "created_at": (datetime.now() - timedelta(days=random.randint(0, 365))).isoformat(),
-                "metadata": {"os": asset.get("os"), "last_user": asset.get("user")},
-            }
+            NormalizedAsset(
+                asset_id=f"mock_{asset['type']}_{asset['id']}",
+                customer_id=settings.customer_id,
+                name=asset["name"],
+                asset_type=asset["type"],
+                status=random.choice(["ACTIVE", "INACTIVE"]),
+                last_seen=datetime.now() - timedelta(days=random.randint(0, 365)),
+                vendor="Mock",
+                metadata={"os": asset.get("os"), "last_user": asset.get("user")},
+            )
             for asset in raw_data
         ]
 
