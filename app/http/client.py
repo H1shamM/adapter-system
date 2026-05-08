@@ -4,7 +4,7 @@ from typing import Any, Callable, Dict, List, Optional
 from urllib.parse import parse_qs, urlparse
 
 import httpx
-from httpx_aws_auth import AwsSigV4Auth
+from httpx_aws_auth import AwsCredentials, AwsSigV4Auth
 from prometheus_client import Counter, Gauge
 from pydantic import BaseModel, Field
 
@@ -55,11 +55,14 @@ class AssetHttpClient:
             self.client.headers["Authorization"] = f"Bearer {token}"
 
         elif auth_type == "aws_sigv4":
+            credentials = AwsCredentials(
+                access_key=self._resolve_secret(self.config.auth_config["access_key"]),
+                secret_key=self._resolve_secret(self.config.auth_config["secret_key"]),
+            )
             self.client.auth = AwsSigV4Auth(
-                self._resolve_secret(self.config.auth_config["access_key"]),
-                self._resolve_secret(self.config.auth_config["secret_key"]),
+                credentials,
                 self._resolve_secret(self.config.auth_config["region"]),
-                "execute-api",  # Service name for AWS APIs
+                "execute-api",
             )
 
         elif auth_type == "api_key":

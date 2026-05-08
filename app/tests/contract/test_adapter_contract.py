@@ -9,10 +9,6 @@ instances, and that an end-to-end execute() round-trip works.
 Adding a new adapter requires adding entries to MINIMAL_CONFIGS and
 SAMPLE_RAW_DATA below. That's intentional friction: contract data is
 the contract.
-
-Known violations (xfail-marked, see issue #12):
-- AWS:  connect/fetch_raw are sync, normalize returns dicts
-- Mock: connect/fetch_raw are sync, normalize returns dicts
 """
 
 import copy
@@ -122,9 +118,6 @@ SAMPLE_RAW_DATA: Dict[str, List[dict]] = {
     ],
 }
 
-# Adapters known to violate the async contract. Tracked by issue #12.
-KNOWN_BROKEN = {"aws", "mock"}
-
 ALL_ADAPTERS = sorted(ADAPTER_REGISTRY.keys())
 
 
@@ -162,8 +155,6 @@ def test_sample_raw_data_covers_every_registered_adapter():
 @pytest.mark.parametrize("adapter_type", ALL_ADAPTERS)
 def test_connect_is_async(adapter_type):
     cls = ADAPTER_REGISTRY[adapter_type][0]
-    if adapter_type in KNOWN_BROKEN:
-        pytest.xfail(f"{cls.__name__}.connect() is sync; tracked by issue #12")
     assert inspect.iscoroutinefunction(
         cls.connect
     ), f"{cls.__name__}.connect() must be async (BaseAdapter.execute() awaits it)"
@@ -172,8 +163,6 @@ def test_connect_is_async(adapter_type):
 @pytest.mark.parametrize("adapter_type", ALL_ADAPTERS)
 def test_fetch_raw_is_async(adapter_type):
     cls = ADAPTER_REGISTRY[adapter_type][0]
-    if adapter_type in KNOWN_BROKEN:
-        pytest.xfail(f"{cls.__name__}.fetch_raw() is sync; tracked by issue #12")
     assert inspect.iscoroutinefunction(
         cls.fetch_raw
     ), f"{cls.__name__}.fetch_raw() must be async (BaseAdapter.execute() awaits it)"
@@ -194,11 +183,6 @@ def test_normalize_is_sync(adapter_type):
 
 @pytest.mark.parametrize("adapter_type", ALL_ADAPTERS)
 def test_construction_from_minimal_config(adapter_type):
-    if adapter_type == "aws":
-        # AssetHttpClient passes 4 positional args to AwsSigV4Auth, but
-        # httpx-aws-auth==4.1.1's signature only accepts 3. Construction
-        # raises TypeError. Tracked by issue #12.
-        pytest.xfail("AWS: AwsSigV4Auth signature mismatch in AssetHttpClient")
     adapter = _build(adapter_type)
     assert adapter.config.name == MINIMAL_CONFIGS[adapter_type]["name"]
 
@@ -210,8 +194,6 @@ def test_construction_from_minimal_config(adapter_type):
 
 @pytest.mark.parametrize("adapter_type", ALL_ADAPTERS)
 def test_normalize_empty_input_returns_empty_list(adapter_type):
-    if adapter_type in KNOWN_BROKEN:
-        pytest.xfail(f"{adapter_type}: normalize returns dicts not NormalizedAssets; issue #12")
     adapter = _build(adapter_type)
     result = adapter.normalize([])
     assert result == [], f"{adapter_type}: normalize([]) must return []"
@@ -219,8 +201,6 @@ def test_normalize_empty_input_returns_empty_list(adapter_type):
 
 @pytest.mark.parametrize("adapter_type", ALL_ADAPTERS)
 def test_normalize_returns_normalized_assets(adapter_type):
-    if adapter_type in KNOWN_BROKEN:
-        pytest.xfail(f"{adapter_type}: normalize returns dicts not NormalizedAssets; issue #12")
     adapter = _build(adapter_type)
     sample = SAMPLE_RAW_DATA[adapter_type]
     result = adapter.normalize(sample)
@@ -235,8 +215,6 @@ def test_normalize_returns_normalized_assets(adapter_type):
 
 @pytest.mark.parametrize("adapter_type", ALL_ADAPTERS)
 def test_normalize_does_not_mutate_input(adapter_type):
-    if adapter_type in KNOWN_BROKEN:
-        pytest.xfail(f"{adapter_type}: see issue #12")
     adapter = _build(adapter_type)
     sample = SAMPLE_RAW_DATA[adapter_type]
     original = copy.deepcopy(sample)
@@ -251,9 +229,6 @@ def test_normalize_does_not_mutate_input(adapter_type):
 
 @pytest.mark.parametrize("adapter_type", ALL_ADAPTERS)
 async def test_execute_round_trip(adapter_type, mocker):
-    if adapter_type in KNOWN_BROKEN:
-        pytest.xfail(f"{adapter_type}: sync connect/fetch_raw breaks await; issue #12")
-
     adapter = _build(adapter_type)
 
     async def fake_connect():
