@@ -1,14 +1,14 @@
 from datetime import timedelta
 
 import pytest
-from jose import jwt, JWTError
+from jose import JWTError, jwt
 
 from app.auth.security import (
+    ALGORITHM,
+    SECRET_KEY,
+    create_access_token,
     hash_password,
     verify_password,
-    create_access_token,
-    SECRET_KEY,
-    ALGORITHM,
 )
 
 

@@ -5,7 +5,7 @@ from typing import Dict, List
 
 from pydantic import Field
 
-from app.adapters.base import BaseAdapter, AdapterConfig
+from app.adapters.base import AdapterConfig, BaseAdapter
 from app.config import settings
 from app.models.assets import NormalizedAsset
 from app.utils.logging import get_logger
@@ -14,30 +14,23 @@ logger = get_logger(__name__)
 
 
 class PerfTestConfig(AdapterConfig):
-    """ Performance test adapter configuration """
+    """Performance test adapter configuration"""
 
     test_id: str = Field(..., description="Unique test identifier")
 
     sync_duration_seconds: int = Field(
-        default= 1800,
-        description="How long this sync should take (in seconds)"
+        default=1800, description="How long this sync should take (in seconds)"
     )
 
-    asset_count: int = Field(
-        default=100,
-        description="How many assets to generate"
-    )
+    asset_count: int = Field(default=100, description="How many assets to generate")
 
     failure_rate: float = Field(
-        default=0.0,
-        ge=0.0,
-        le=1.0,
-        description="Chance of failure (0.0 to 1.0)"
+        default=0.0, ge=0.0, le=1.0, description="Chance of failure (0.0 to 1.0)"
     )
 
 
 class PerfTestAdapter(BaseAdapter):
-    """ Adapter that simulates long-running operations for testing """
+    """Adapter that simulates long-running operations for testing"""
 
     def __init__(self, config: PerfTestConfig):
         super().__init__(config)
@@ -52,7 +45,11 @@ class PerfTestAdapter(BaseAdapter):
         return True
 
     async def fetch_raw(self) -> List[Dict]:
-        logger.info("perf_test_sync_start", test_id=self.config.test_id, duration=self.config.sync_duration_seconds)
+        logger.info(
+            "perf_test_sync_start",
+            test_id=self.config.test_id,
+            duration=self.config.sync_duration_seconds,
+        )
 
         chunk_duration = 10
         chunks = self.config.sync_duration_seconds // chunk_duration
@@ -60,13 +57,15 @@ class PerfTestAdapter(BaseAdapter):
         for i in range(chunks):
             await asyncio.sleep(chunk_duration)
             progress = (i + 1) / chunks * 100
-            logger.debug("perf_test_progress", test_id=self.config.test_id, progress=f"{progress:.0f}%")
+            logger.debug(
+                "perf_test_progress", test_id=self.config.test_id, progress=f"{progress:.0f}%"
+            )
 
         return [
             {
                 "id": f"{self.config.test_id}_asset_{i}",
                 "name": f"Test asset {i}",
-                "status": random.choice(["active", "inactive","pending"]),
+                "status": random.choice(["active", "inactive", "pending"]),
                 "created_at": datetime.now().isoformat(),
             }
             for i in range(self.config.asset_count)
@@ -79,14 +78,13 @@ class PerfTestAdapter(BaseAdapter):
                 customer_id=settings.customer_id,
                 name=item["name"],
                 asset_type="test_asset",
-                status= item["status"].upper(),
+                status=item["status"].upper(),
                 last_seen=datetime.fromisoformat(item["created_at"]),
                 vendor=f"PerfTest-{self.config.test_id}",
                 metadata={
                     "test_id": self.config.test_id,
                     "sync_duration": self.config.sync_duration_seconds,
-                }
+                },
             )
             for item in raw_data
         ]
-

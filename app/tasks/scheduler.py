@@ -9,11 +9,9 @@ from app.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
-@app.task(name='check_due_adapters')
+@app.task(name="check_due_adapters")
 def check_and_queue_due_adapters():
-    logger.info(
-        "scheduler_checking_due_adapters"
-    )
+    logger.info("scheduler_checking_due_adapters")
     store = AdapterConfigStore()
     due_adapters = store.get_due_adapters()
 
@@ -31,12 +29,7 @@ def check_and_queue_due_adapters():
 
         try:
 
-            task = sync_adapter_task.delay(
-                adapter_id,
-                adapter_type,
-                adapter,
-                sync_id
-            )
+            task = sync_adapter_task.delay(adapter_id, adapter_type, adapter, sync_id)
 
             history.start_sync(sync_id=sync_id, adapter=adapter_id)
 
@@ -46,10 +39,10 @@ def check_and_queue_due_adapters():
                 "scheduler_queued_sync",
                 adapter_id=adapter_id,
                 adapter_type=adapter_type,
-                sync_interval=adapter.get('sync_interval'),
-                priority=adapter.get('priority'),
+                sync_interval=adapter.get("sync_interval"),
+                priority=adapter.get("priority"),
                 task_id=task.id,
-                sync_id=sync_id
+                sync_id=sync_id,
             )
         except Exception as e:
             logger.error(
@@ -57,14 +50,10 @@ def check_and_queue_due_adapters():
                 adapter_id=adapter_id,
                 adapter_type=adapter_type,
                 error=str(e),
-                exc_info=True
+                exc_info=True,
             )
 
-    logger.info(
-        "scheduler_completed",
-        total_due=len(due_adapters),
-        queued=queued
-    )
+    logger.info("scheduler_completed", total_due=len(due_adapters), queued=queued)
 
     return {
         "queued": queued,
@@ -74,13 +63,11 @@ def check_and_queue_due_adapters():
 
 
 app.conf.beat_schedule = {
-    'check-due-adapters-every-5-min': {
-        'task': 'check_due_adapters',
-        'schedule': timedelta(minutes=5),
-        'options': {
-            'expires': 300
-        },
+    "check-due-adapters-every-5-min": {
+        "task": "check_due_adapters",
+        "schedule": timedelta(minutes=5),
+        "options": {"expires": 300},
     }
 }
 
-app.conf.timezone = 'UTC'
+app.conf.timezone = "UTC"

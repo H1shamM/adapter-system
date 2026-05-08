@@ -18,7 +18,6 @@ BASE_ADAPTER_SCHEMA = {
         "options": ["low", "medium", "high"],
         "default": "medium",
     },
-
     "asset_types": {
         "type": "multiselect",
         "label": "Assets Types",
@@ -148,12 +147,7 @@ GITHUB_SCHEMA = {
         **BASE_ADAPTER_SCHEMA["auth_type"],
         "default": "none",
     },
-    "repo": {
-        "type": "string",
-        "label": "Repository",
-        "required": True,
-        "example": "octocat"
-    },
+    "repo": {"type": "string", "label": "Repository", "required": True, "example": "octocat"},
     "auth_config": {
         "type": "object",
         "label": "Authentication Configuration",
@@ -173,7 +167,7 @@ GITHUB_SCHEMA = {
                 "label": "Token",
                 "required": True,
             },
-        }
+        },
     },
 }
 
@@ -202,8 +196,8 @@ AWS_SCHEMA = {
     "auth_config": {
         "type": "object",
         "label": "Authentication Configuration",
-        "fields": {**AUTH_SCHEMAS['aws']}
-    }
+        "fields": {**AUTH_SCHEMAS["aws"]},
+    },
 }
 
 ADAPTER_SCHEMAS = {

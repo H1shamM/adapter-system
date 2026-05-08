@@ -1,5 +1,7 @@
+from typing import Any, Optional
+
 from pydantic import BaseModel
-from typing import Optional, Any
+
 
 class SyncStatusResponse(BaseModel):
     task_id: str

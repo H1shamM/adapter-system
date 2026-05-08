@@ -42,10 +42,9 @@ def test_github_adapter(mocker, github_config: GitHubConfig):
                 "state": "open",
                 "updated_at": "2024-01-01 00:00:00",
                 "html_url": "https://github.com/axios/axios",
-                "labels": []
-
+                "labels": [],
             }
-        ]
+        ],
     )
 
     assets = adapter.execute()
@@ -60,14 +59,11 @@ def test_github_adapter_fetch_unauthorized(mocker, github_config: GitHubConfig):
 
     mocker.patch.object(adapter, "connect", return_value=True)
 
-    mocker.patch.object(
-        adapter.client,
-        "paginated_get",
-        side_effect= HTTPError()
-    )
+    mocker.patch.object(adapter.client, "paginated_get", side_effect=HTTPError())
 
     with pytest.raises(FetchError):
         adapter.execute()
+
 
 def test_github_adapter_auth_failure(mocker, github_config: GitHubConfig):
     adapter = GitHubAdapter(github_config)
@@ -81,16 +77,18 @@ def test_github_adapter_auth_failure(mocker, github_config: GitHubConfig):
 def test_github_normalization(github_config: GitHubConfig):
     adapter = GitHubAdapter(github_config)
 
-    raw = [{
-        "id": 2,
-        "title": "Feature",
-        "state": "closed",
-        "updated_at": "2024-01-01T00:00:00Z",
-        "html_url": "https://github.com/axios/axios",
-        "labels": [{"name": "enhancement"}]
-    }]
+    raw = [
+        {
+            "id": 2,
+            "title": "Feature",
+            "state": "closed",
+            "updated_at": "2024-01-01T00:00:00Z",
+            "html_url": "https://github.com/axios/axios",
+            "labels": [{"name": "enhancement"}],
+        }
+    ]
 
     assets = adapter.normalize(raw)
 
     assert assets[0].status == "CLOSED"
-    assert assets[0].metadata['labels'] == ["enhancement"]
+    assert assets[0].metadata["labels"] == ["enhancement"]

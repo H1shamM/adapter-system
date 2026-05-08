@@ -1,15 +1,18 @@
 """
 Trigger all configured adapters to sync immediately.
 """
-import requests
+
 import time
+
+import requests
 
 API_BASE = "http://localhost:8000/api/v1"
 
 
 session = requests.Session()
 
-def login(username: str = "admin", password:str = "admin123"):
+
+def login(username: str = "admin", password: str = "admin123"):
 
     try:
         response = session.post(
@@ -31,12 +34,14 @@ def login(username: str = "admin", password:str = "admin123"):
         print(f"✗ Login error: {e}")
         return False
 
+
 def get_all_instances():
     response = session.get(f"{API_BASE}/adapters")
     if response.status_code == 200:
         data = response.json()
         return data.get("instances", [])
     return []
+
 
 def trigger_sync(adapter_id: str):
     try:
@@ -76,7 +81,6 @@ def trigger_all_syncs():
     print(f"\nTriggering {len(instances)} syncs...")
     print("-" * 80)
 
-
     success_count = 0
     failed_count = 0
 
@@ -90,7 +94,7 @@ def trigger_all_syncs():
         time.sleep(0.1)
 
     print("-" * 80)
-    print(f"\nResults:")
+    print("\nResults:")
     print(f"  Queued:  {success_count} ✅")
     print(f"  Failed:  {failed_count} ❌")
     print(f"  Total:   {len(instances)}")

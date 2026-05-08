@@ -11,11 +11,11 @@ class JSONPlaceholderAdapter(BaseAdapter):
     adapter_type = "jsonplaceholder"
 
     async def connect(self):
-        await self.client.get('/users', params={"_limit": 1})
+        await self.client.get("/users", params={"_limit": 1})
 
     async def fetch_raw(self) -> List[Dict]:
         try:
-            response = await self.client.get('/users')
+            response = await self.client.get("/users")
             users = response.json()
             return users
         except Exception as e:
@@ -25,16 +25,18 @@ class JSONPlaceholderAdapter(BaseAdapter):
         assets = []
 
         for data in raw_data:
-            asset = NormalizedAsset.from_raw({
-                "asset_id": str(data["id"]),
-                "customer_id": settings.customer_id,
-                "name": data["name"],
-                "asset_type": "user",
-                "status": "active",
-                "last_seen": datetime.utcnow(),
-                "vendor": "jsonplaceholder",
-                "metadata": data
-            })
+            asset = NormalizedAsset.from_raw(
+                {
+                    "asset_id": str(data["id"]),
+                    "customer_id": settings.customer_id,
+                    "name": data["name"],
+                    "asset_type": "user",
+                    "status": "active",
+                    "last_seen": datetime.utcnow(),
+                    "vendor": "jsonplaceholder",
+                    "metadata": data,
+                }
+            )
             assets.append(asset)
 
         return assets

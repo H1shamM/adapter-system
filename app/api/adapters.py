@@ -26,24 +26,18 @@ router = APIRouter()
     response_model=AdapterSyncResponse,
 )
 async def trigger_sync(
-        adapter_id: str,
-        history: SyncHistoryStore = Depends(get_sync_history_store),
-        store: AdapterConfigStore = Depends(get_adapter_config_store),
-        current_user=Depends(get_current_user)
+    adapter_id: str,
+    history: SyncHistoryStore = Depends(get_sync_history_store),
+    store: AdapterConfigStore = Depends(get_adapter_config_store),
+    current_user=Depends(get_current_user),
 ):
     config = store.get(adapter_id)
     if not config:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Adapter instance '{adapter_id}' not found"
-        )
+        raise HTTPException(status_code=404, detail=f"Adapter instance '{adapter_id}' not found")
 
     adapter_type = config.get("adapter_type")
     if adapter_type not in SUPPORTED_ADAPTERS:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Adapter type '{adapter_type}' not supported"
-        )
+        raise HTTPException(status_code=404, detail=f"Adapter type '{adapter_type}' not supported")
 
     sync_id = str(uuid4())
     try:
@@ -51,7 +45,7 @@ async def trigger_sync(
             "Queuing adapter sync task",
             adapter_id=adapter_id,
             adapter_type=adapter_type,
-            sync_id=sync_id
+            sync_id=sync_id,
         )
         task = sync_adapter_task.delay(adapter_id, adapter_type, config, sync_id)
         history.start_sync(
@@ -61,10 +55,7 @@ async def trigger_sync(
 
     except OperationalError:
         logger.error("Failed to queue adapter sync task", exc_info=True)
-        raise HTTPException(
-            status_code=503,
-            detail="Task queue unavailable"
-        )
+        raise HTTPException(status_code=503, detail="Task queue unavailable")
     return AdapterSyncResponse(
         task_id=task.id,
         sync_id=sync_id,
@@ -73,8 +64,7 @@ async def trigger_sync(
 
 @router.get("/adapters")
 async def list_adapters(
-        adapter_type: str = None,
-        store: AdapterConfigStore = Depends(get_adapter_config_store)
+    adapter_type: str = None, store: AdapterConfigStore = Depends(get_adapter_config_store)
 ):
     if adapter_type:
         instances = store.get_by_type(adapter_type)
@@ -84,14 +74,13 @@ async def list_adapters(
     return {
         "total": len(instances),
         "instances": instances,
-        "supported_types": list(SUPPORTED_ADAPTERS)
+        "supported_types": list(SUPPORTED_ADAPTERS),
     }
 
 
 @router.post("/adapters")
 async def upsert_adapter(
-        payload: dict,
-        store: AdapterConfigStore = Depends(get_adapter_config_store)
+    payload: dict, store: AdapterConfigStore = Depends(get_adapter_config_store)
 ):
     adapter_type = payload.get("adapter_type") or payload.get("name")
 
@@ -104,17 +93,14 @@ async def upsert_adapter(
     adapter_id = payload.get("adapter_id")
     if not adapter_id:
         from uuid import uuid4
+
         adapter_id = f"{adapter_type}_{uuid4().hex[:8]}"
 
     schema = ADAPTER_CONFIGS.get(adapter_type)
     user_config = schema(**payload)
     config_dict = user_config.dict(exclude_unset=True)
 
-    store.upsert(
-        adapter_id=adapter_id,
-        adapter_type=adapter_type,
-        config=config_dict
-    )
+    store.upsert(adapter_id=adapter_id, adapter_type=adapter_type, config=config_dict)
 
     if config_dict.get("enabled", True):
         sync_interval = config_dict.get("sync_interval", 3600)
@@ -128,8 +114,7 @@ async def upsert_adapter(
 
 @router.get("/adapters/{adapter_id}")
 async def get_adapter(
-        adapter_id: str,
-        store: AdapterConfigStore = Depends(get_adapter_config_store)
+    adapter_id: str, store: AdapterConfigStore = Depends(get_adapter_config_store)
 ):
     config = store.get(adapter_id)
     if not config:
@@ -148,9 +133,9 @@ async def get_adapter(
 
 @router.delete("/adapters/{adapter_id}")
 async def delete_adapter(
-        adapter_id: str,
-        store: AdapterConfigStore = Depends(get_adapter_config_store),
-        current_user=Depends(get_current_user)
+    adapter_id: str,
+    store: AdapterConfigStore = Depends(get_adapter_config_store),
+    current_user=Depends(get_current_user),
 ):
     config = store.get(adapter_id)
     if not config:
@@ -171,22 +156,17 @@ async def get_adapter_schema(name: str):
 
 @router.post("/adapters/{adapter_id}/health")
 async def health_check(
-        adapter_id: str,
-        store: AdapterConfigStore = Depends(get_adapter_config_store)
+    adapter_id: str, store: AdapterConfigStore = Depends(get_adapter_config_store)
 ):
     config = store.get(adapter_id)
 
     if not config:
         return HealthResponse(
-            adapter=adapter_id,
-            status="UNKNOWN",
-            message=f"Adapter {adapter_id} not configured"
+            adapter=adapter_id, status="UNKNOWN", message=f"Adapter {adapter_id} not configured"
         )
     if not config.get("enabled", True):
         return HealthResponse(
-            adapter=adapter_id,
-            status="DISABLED",
-            message=f"Adapter {adapter_id} disabled"
+            adapter=adapter_id, status="DISABLED", message=f"Adapter {adapter_id} disabled"
         )
 
     adapter_type = config.get("adapter_type")
@@ -195,20 +175,16 @@ async def health_check(
         await adapter.connect()
 
         return HealthResponse(
-            adapter=adapter_id,
-            status="HEALTHY",
-            message=f"Adapter {adapter_id} healthy"
+            adapter=adapter_id, status="HEALTHY", message=f"Adapter {adapter_id} healthy"
         )
 
     except AuthenticationError as e:
         return HealthResponse(
             adapter=adapter_id,
             status="UNHEALTHY",
-            message=f"Adapter {adapter_id} unhealthy: {str(e)}"
+            message=f"Adapter {adapter_id} unhealthy: {str(e)}",
         )
     except Exception as e:
         return HealthResponse(
-            adapter=adapter_id,
-            status="UNHEALTHY",
-            message=f"Adapter {adapter_id} failed: {str(e)}"
+            adapter=adapter_id, status="UNHEALTHY", message=f"Adapter {adapter_id} failed: {str(e)}"
         )

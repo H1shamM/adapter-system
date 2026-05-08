@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from prometheus_client import make_asgi_app
@@ -41,7 +41,7 @@ async def startup_event():
         version=settings.app_version,
         environment=settings.environment,
         customer_id=settings.customer_id,
-        instance_id=settings.instance_id
+        instance_id=settings.instance_id,
     )
     logger.info(f"Starting {settings.app_name} v{settings.app_version}")
 
@@ -54,10 +54,7 @@ async def shutdown_event():
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request, exc):
-    return JSONResponse(
-        status_code=500,
-        content={"detail": "internal server error"}
-    )
+    return JSONResponse(status_code=500, content={"detail": "internal server error"})
 
 
 @app.exception_handler(HTTPException)
@@ -73,12 +70,16 @@ async def validation_exception_handler(request, exc):
         content={
             "detail": exc.errors(),
             "body": exc.body.decode() if isinstance(exc.body, (bytes, bytearray)) else exc.body,
-        })
+        },
+    )
 
 
 metrics_app = make_asgi_app()
 
-app.include_router(adapters_router, prefix="/api/v1", )
+app.include_router(
+    adapters_router,
+    prefix="/api/v1",
+)
 app.include_router(syncs_router, prefix="/api/v1")
 app.include_router(assets_router, prefix="/api/v1")
 app.include_router(health_router, prefix="/api/v1")
@@ -95,7 +96,7 @@ app.add_middleware(
 )
 
 
-@app.get('/')
+@app.get("/")
 async def root():
     return {
         "message": f"{settings.app_name} API",

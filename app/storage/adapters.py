@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import Optional
+
 from pymongo import ASCENDING
 
 from app.config import settings
@@ -20,12 +20,13 @@ class AdapterConfigStore:
 
         self.collection.create_index([("adapter_type", ASCENDING)])
 
-        #index for scheduler queries
-        self.collection.create_index([
-            ("enabled", ASCENDING),
-            ("next_sync", ASCENDING),
-        ])
-
+        # index for scheduler queries
+        self.collection.create_index(
+            [
+                ("enabled", ASCENDING),
+                ("next_sync", ASCENDING),
+            ]
+        )
 
     def _sanitize(self, doc: dict | None) -> dict | None:
         return serialize_mongo(doc)
@@ -37,8 +38,7 @@ class AdapterConfigStore:
             "adapter_id": adapter_id,
             "adapter_type": adapter_type,
             **config,
-            "updated_at": datetime.utcnow()
-
+            "updated_at": datetime.utcnow(),
         }
 
         self.collection.update_one(
@@ -73,9 +73,7 @@ class AdapterConfigStore:
                 "$set": {
                     "next_sync": next_sync,
                 },
-                "$setOnInsert": {
-                    "last_sync": None
-                }
+                "$setOnInsert": {"last_sync": None},
             },
             upsert=True,
         )
@@ -84,13 +82,9 @@ class AdapterConfigStore:
 
         now = datetime.utcnow()
 
-        cursor = self.collection.find({
-            "enabled": True,
-            "$or": [
-                {"next_sync": {"$lte": now}},
-                {"next_sync": None}
-            ]
-        })
+        cursor = self.collection.find(
+            {"enabled": True, "$or": [{"next_sync": {"$lte": now}}, {"next_sync": None}]}
+        )
 
         return [serialize_mongo(doc) for doc in cursor]
 
@@ -111,5 +105,5 @@ class AdapterConfigStore:
                     "last_sync": now,
                     "next_sync": next_sync,
                 }
-            }
+            },
         )

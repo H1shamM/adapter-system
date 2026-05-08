@@ -1,10 +1,10 @@
 from datetime import datetime
-from typing import List, Dict
+from typing import Dict, List
 
 import requests
 from pydantic import Field
 
-from app.adapters.base import BaseAdapter, AdapterConfig
+from app.adapters.base import AdapterConfig, BaseAdapter
 from app.adapters.errors import AuthenticationError
 from app.config import settings
 from app.models.assets import NormalizedAsset
@@ -12,11 +12,10 @@ from app.models.assets import NormalizedAsset
 
 class GitHubConfig(AdapterConfig):
     """GitHub-specific configuration"""
+
     repo: str = Field(..., min_length=1)
 
-    asset_types: List[str] = Field(
-        default_factory=lambda: ["issue", "pull_request"]
-    )
+    asset_types: List[str] = Field(default_factory=lambda: ["issue", "pull_request"])
 
 
 class GitHubAdapter(BaseAdapter):
@@ -35,9 +34,7 @@ class GitHubAdapter(BaseAdapter):
 
     async def fetch_raw(self) -> List[Dict]:
         return await self.client.paginated_get(
-            f"/repos/{self.config.repo}/issues",
-            max_pages=5,
-            extract_data=lambda r: r
+            f"/repos/{self.config.repo}/issues", max_pages=5, extract_data=lambda r: r
         )
 
     def normalize(self, raw_data: List[Dict]) -> list[NormalizedAsset]:
@@ -45,14 +42,15 @@ class GitHubAdapter(BaseAdapter):
             NormalizedAsset(
                 asset_id=f"github_{item['id']}",
                 customer_id=settings.customer_id,
-                name=item['title'],
+                name=item["title"],
                 asset_type="issue",
-                status=item['state'].upper(),
-                last_seen=datetime.fromisoformat(item['updated_at']),
+                status=item["state"].upper(),
+                last_seen=datetime.fromisoformat(item["updated_at"]),
                 vendor="GitHub",
                 metadata={
-                    "url": item['html_url'],
-                    "labels": [l['name'] for l in item.get('labels', [])]
-                }
-            ) for item in raw_data
+                    "url": item["html_url"],
+                    "labels": [label["name"] for label in item.get("labels", [])],
+                },
+            )
+            for item in raw_data
         ]

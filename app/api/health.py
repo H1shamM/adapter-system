@@ -30,12 +30,9 @@ async def readiness_check():
     try:
         client = get_mongo_client()
 
-        client.admin.command('ping', maxTimeMS=2000)
+        client.admin.command("ping", maxTimeMS=2000)
 
-        checks["mongodb"] = {
-            "status": "healthy",
-            "response_time_ms": "<2000"
-        }
+        checks["mongodb"] = {"status": "healthy", "response_time_ms": "<2000"}
     except Exception as e:
         checks["mongodb"] = {
             "status": "unhealthy",
@@ -62,7 +59,7 @@ async def readiness_check():
         "timestamp": datetime.now().isoformat(),
         "customer_id": settings.customer_id,
         "instance_id": settings.instance_id,
-        "checks": checks
+        "checks": checks,
     }
 
     status_code = status.HTTP_200_OK if all_ready else status.HTTP_503_SERVICE_UNAVAILABLE
@@ -74,24 +71,21 @@ async def readiness_check():
 async def instance_info():
     cpu_percent = psutil.cpu_percent(interval=0.1)
     memory = psutil.virtual_memory()
-    disk = psutil.disk_usage('/')
+    disk = psutil.disk_usage("/")
 
     return {
         "customer_id": settings.customer_id,
         "instance_id": settings.instance_id,
         "environment": settings.environment,
-
         "app_name": settings.app_name,
         "app_version": settings.app_version,
-
         "system": {
             "cpu_percent": cpu_percent,
             "memory_percent": memory.percent,
-            "memory_available_gb": round(memory.available / (1024 ** 3), 2),
+            "memory_available_gb": round(memory.available / (1024**3), 2),
             "disk_percent": disk.percent,
-            "disk_available_gb": round(disk.free / (1024 ** 3), 2),
+            "disk_available_gb": round(disk.free / (1024**3), 2),
         },
-
         "database": {
             "database_name": settings.database.mongo_db_name,
             "max_pool_size": settings.database.mongo_max_pool_size,
@@ -104,7 +98,7 @@ async def instance_info():
 async def startup_check():
     try:
         client = get_mongo_client()
-        client.admin.command('ping', maxTimeMS=5000)
+        client.admin.command("ping", maxTimeMS=5000)
 
         return {
             "status": "started",

@@ -1,21 +1,22 @@
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Literal, Type
+from typing import Dict, List, Literal, Optional, Type
 
 import requests
 from pydantic import Field
 
 from app.adapters.errors import AuthenticationError, FetchError
-from app.http.client import HttpClientConfig, AssetHttpClient
+from app.http.client import AssetHttpClient, HttpClientConfig
 from app.models.assets import NormalizedAsset
 
 
 class AdapterConfig(HttpClientConfig):  # Inherit from HttpClientConfig
     """Combines HTTP config with adapter-specific settings"""
+
     name: str = Field(..., min_length=3)
     enabled: bool = True
 
     sync_interval: int = Field(3600, ge=60)
-    priority: Literal['low', 'medium', 'high'] = 'medium'
+    priority: Literal["low", "medium", "high"] = "medium"
 
     asset_types: List[str] = Field(default_factory=list)
 
@@ -62,9 +63,7 @@ class BaseAdapter(ABC):
             status = err.response.status_code if err.response else "UNKNOWN"
             raise FetchError(f"{self.config.name}: execution failed ({status})") from err
         except Exception as e:
-            raise FetchError(
-                f"{self.config.name}: execution failed"
-            ) from e
+            raise FetchError(f"{self.config.name}: execution failed") from e
 
     async def close(self):
         """Close connection"""
