@@ -60,7 +60,7 @@ Goal: Lock in the professional workflow before adding more features.
 | 1.2 | Add `requirements-dev.txt` and `pyproject.toml` quality config | S | in-progress (this PR) |
 | 1.3 | Fix UTF-16 encoding of `requirements.txt` (suspected pip install issue) | XS | open |
 | 1.4 | Increase test coverage to 70%+ on `app/services/` and `app/storage/` | M | open |
-| 1.5 | Add contract tests for `BaseAdapter` (every adapter must satisfy the interface) | S | open |
+| 1.5 | Add contract tests for `BaseAdapter` (every adapter must satisfy the interface) | S | done |
 | 1.6 | Document the workflow in `docs/PROFESSIONAL_WORKFLOW.md` and `docs/GITHUB_WORKFLOW.md` | S | done (this PR) |
 
 ### Sprint 2 -- Production Hardening
