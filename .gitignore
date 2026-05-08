@@ -10,3 +10,14 @@ node_modules/
 *.log
 .playwright-mcp/
 .claude/
+
+# Local scratch / sandbox checkouts (e.g. reference repos cloned for inspection)
+tmp/
+
+# Coverage artifacts from pytest --cov
+.coverage
+coverage.xml
+htmlcov/
+
+# pytest cache
+.pytest_cache/
