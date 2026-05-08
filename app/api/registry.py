@@ -7,8 +7,8 @@ from app.adapters.perf_test.adapter import PerfTestConfig
 ADAPTER_CONFIGS = {
     "github": GitHubConfig,
     "aws": AWSConfig,
-    "mock":  MockConfig,
-    "jsonplaceholder":  AdapterConfig,
+    "mock": MockConfig,
+    "jsonplaceholder": AdapterConfig,
     "coingecko": AdapterConfig,
     "randomuser": AdapterConfig,
     "perftest": PerfTestConfig,

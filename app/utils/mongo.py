@@ -1,5 +1,7 @@
-from bson import ObjectId
 from datetime import datetime
+
+from bson import ObjectId
+
 
 def serialize_mongo(value):
     if isinstance(value, ObjectId):

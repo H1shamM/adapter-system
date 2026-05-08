@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import List, Dict
+from typing import Dict, List
 
-from app.adapters.base import BaseAdapter, AdapterConfig
+from app.adapters.base import AdapterConfig, BaseAdapter
 from app.adapters.errors import FetchError
 from app.config import settings
 from app.models.assets import NormalizedAsset
@@ -9,14 +9,14 @@ from app.models.assets import NormalizedAsset
 
 class CoinGeckoAdapter(BaseAdapter):
 
-    adapter_type = 'coingecko'
+    adapter_type = "coingecko"
 
     def __init__(self, config: AdapterConfig):
         super().__init__(config)
         self.currency = getattr(self.config, "currency", "usd")
 
     async def connect(self):
-        await self.client.get('/ping')
+        await self.client.get("/ping")
 
     async def fetch_raw(self) -> List[Dict]:
         try:
@@ -33,16 +33,18 @@ class CoinGeckoAdapter(BaseAdapter):
         assets = []
 
         for data in raw_data:
-            asset = NormalizedAsset.from_raw({
-                "asset_id": data["id"],
-                "customer_id": settings.customer_id,
-                "name": data["name"],
-                "asset_type": "crypto",
-                "status": "active",
-                "last_seen": datetime.utcnow(),
-                "vendor": "coingecko",
-                "metadata": data
-            })
+            asset = NormalizedAsset.from_raw(
+                {
+                    "asset_id": data["id"],
+                    "customer_id": settings.customer_id,
+                    "name": data["name"],
+                    "asset_type": "crypto",
+                    "status": "active",
+                    "last_seen": datetime.utcnow(),
+                    "vendor": "coingecko",
+                    "metadata": data,
+                }
+            )
             assets.append(asset)
 
         return assets

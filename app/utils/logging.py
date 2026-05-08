@@ -2,6 +2,7 @@
 Structured logging with customer context.
 All loggings automatically include customer id for centralized debugging
 """
+
 import logging
 
 import structlog

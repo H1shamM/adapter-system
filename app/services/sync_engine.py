@@ -21,23 +21,18 @@ async def run_adapter_sync(adapter_type: str, config: dict) -> dict:
 
     result = store.store_assets(assets)
 
-    metrics.SYNC_SUCCESS.labels(
-        adapter_type=adapter_type,
-        customer_id=settings.customer_id
-    ).inc()
+    metrics.SYNC_SUCCESS.labels(adapter_type=adapter_type, customer_id=settings.customer_id).inc()
     metrics.SYNC_DURATION.labels(
-        adapter_type=adapter_type,
-        customer_id=settings.customer_id
+        adapter_type=adapter_type, customer_id=settings.customer_id
     ).observe(time.time() - start_time)
 
     for asset in assets:
         metrics.ASSET_COUNT.labels(
-            asset_type=asset.asset_type,
-            customer_id=settings.customer_id
+            asset_type=asset.asset_type, customer_id=settings.customer_id
         ).inc()
     return {
-        "inserted": result['nInserted'],
-        "modified": result['nModified'],
+        "inserted": result["nInserted"],
+        "modified": result["nModified"],
         "assets_processed": len(assets),
         "success": True,
     }

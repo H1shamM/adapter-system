@@ -3,31 +3,21 @@ from app.adapters.github_adapter.adapter import GitHubAdapter
 
 
 def test_github_adapter():
-    config = {
-        "name": "github-prod",
-        "token": "ghp_testtoken",
-        "org": "axios",
-        "repo": "axios"
-    }
+    config = {"name": "github-prod", "token": "ghp_testtoken", "org": "axios", "repo": "axios"}
     adapter = build_adapter("github", config)
     assert adapter.connect() is False  # Invalid token
 
+
 def test_adapter_creation():
     # Test adapter creation
-    adapter = build_adapter("github", {
-        "name": "gh-prod",
-        "token": "ghp_test",
-        "org": "axios",
-        "repo": "axios"
-    })
+    adapter = build_adapter(
+        "github", {"name": "gh-prod", "token": "ghp_test", "org": "axios", "repo": "axios"}
+    )
     assert isinstance(adapter, GitHubAdapter)
 
 
 def test_mock_adapter_normalization():
-    config = {
-        "name": "mock-test",
-        "num_assets": 5
-    }
+    config = {"name": "mock-test", "num_assets": 5}
     adapter = build_adapter("mock", config)
     raw = adapter.fetch_raw()
     normalized = adapter.normalize(raw)

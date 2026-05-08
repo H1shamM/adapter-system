@@ -10,5 +10,6 @@ def get_asset_store():
 def get_adapter_config_store():
     return AdapterConfigStore()
 
+
 def get_sync_history_store():
     return SyncHistoryStore()

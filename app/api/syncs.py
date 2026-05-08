@@ -12,17 +12,17 @@ router = APIRouter()
 
 @router.get("/syncs/history")
 async def list_syncs(
-        adapter: str | None = None,
-        limit: int = 100,
-        store: SyncHistoryStore = Depends(get_sync_history_store),
-        current_user = Depends(get_current_user)
+    adapter: str | None = None,
+    limit: int = 100,
+    store: SyncHistoryStore = Depends(get_sync_history_store),
+    current_user=Depends(get_current_user),
 ):
     return store.list(adapter=adapter, limit=limit)
 
 
 @router.get("/syncs/summary")
 async def get_sync_summary(
-        store: SyncHistoryStore = Depends(get_sync_history_store),
+    store: SyncHistoryStore = Depends(get_sync_history_store),
 ):
     docs = store.list(limit=500)
     summary = {}
@@ -54,14 +54,12 @@ async def get_sync_summary(
     return summary
 
 
-
 @router.get("/syncs/{sync_id}")
 async def get_sync_history(sync_id: str, store: SyncHistoryStore = Depends(get_sync_history_store)):
     sync = store.get(sync_id)
     if not sync:
         raise NotFoundException(f"Sync {sync_id} not found")
     return sync
-
 
 
 @router.get("/syncs/{task_id}/status", response_model=SyncStatusResponse)

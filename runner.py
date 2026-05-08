@@ -7,11 +7,7 @@ import traceback
 
 from fastapi.exceptions import ValidationException
 
-from app.adapters.errors import (
-    AuthenticationError,
-    FetchError,
-    NormalizationError
-)
+from app.adapters.errors import AuthenticationError, FetchError, NormalizationError
 from app.api.schemas.adapters import AdapterSyncRequest
 from app.services.sync_engine import run_adapter_sync
 from app.utils.logging import get_logger
@@ -22,20 +18,12 @@ logger = get_logger(__name__)
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='Run adapter ingestion synchronously (no celery)',
+        description="Run adapter ingestion synchronously (no celery)",
     )
 
-    parser.add_argument(
-        "--adapter",
-        required=True,
-        help="Adapter type (e.g github,aws)"
-    )
+    parser.add_argument("--adapter", required=True, help="Adapter type (e.g github,aws)")
 
-    parser.add_argument(
-        "--config",
-        required=True,
-        help="path to adapter config file"
-    )
+    parser.add_argument("--config", required=True, help="path to adapter config file")
 
     return parser.parse_args()
 
@@ -73,10 +61,7 @@ def main():
 
     try:
 
-        result = asyncio.run(run_adapter_sync(
-            adapter_type=adapter_name,
-            config=config
-        ))
+        result = asyncio.run(run_adapter_sync(adapter_type=adapter_name, config=config))
 
     except AuthenticationError as e:
         logger.error(f"Authentication error {e}")
@@ -87,7 +72,7 @@ def main():
     except NormalizationError as e:
         logger.error(f"Normalization error {e}")
         sys.exit(4)
-    except Exception as e:
+    except Exception:
         logger.error("Adapter execution failed:")
         logger.error(traceback.format_exc())
         sys.exit(1)

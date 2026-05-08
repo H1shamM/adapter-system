@@ -22,8 +22,7 @@ session = requests.Session()
 def login(username: str = "admin", password: str = "admin123"):
     try:
         response = session.post(
-            f"{API_BASE}/auth/login",
-            data={"username": username, "password": password}
+            f"{API_BASE}/auth/login", data={"username": username, "password": password}
         )
 
         if response.status_code == 200:
@@ -89,9 +88,12 @@ def monitor():
             completed = statuses.get("SUCCESS", 0)
             failed = statuses.get("FAILED", 0)
 
-            completed_syncs = [s for s in history if s["status"] == "SUCCESS" and s['duration_ms']]
-            avg_duration = sum(s["duration_ms"] for s in completed_syncs) / len(
-                completed_syncs) if completed_syncs else 0
+            completed_syncs = [s for s in history if s["status"] == "SUCCESS" and s["duration_ms"]]
+            avg_duration = (
+                sum(s["duration_ms"] for s in completed_syncs) / len(completed_syncs)
+                if completed_syncs
+                else 0
+            )
 
             elapsed = (datetime.now() - start_time).total_seconds()
 
@@ -105,7 +107,7 @@ def monitor():
             if avg_duration > 0:
                 print(f"Avg Duration:   {avg_duration / 1000:.1f}s")
             else:
-                print(f"Avg Duration:   N/A (no completed syncs yet)")
+                print("Avg Duration:   N/A (no completed syncs yet)")
 
             if total_syncs > 0:
                 completion_rate = (completed / total_syncs) * 100
@@ -133,12 +135,13 @@ def monitor():
                         print(f"  Total Runs:    {stats.get('total_runs', 0)}")
                         print(f"  Success Rate:  {stats.get('success_rate', 0):.1f}%")
                         print(f"  Last Duration: {stats.get('last_duration_ms', 0) / 1000:.1f}s")
-            except:
+            except Exception:
                 pass
             break
         except Exception as e:
             print(f"Error: {e}")
             import traceback
+
             traceback.print_exc()
             time.sleep(10)
 

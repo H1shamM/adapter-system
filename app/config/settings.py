@@ -8,37 +8,18 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class DatabaseSettings(BaseSettings):
     """Database settings"""
 
-    mongo_url: str = Field(
-        default="mongodb://mongo:27017",
-        description="MongoDB connection string"
-    )
+    mongo_url: str = Field(default="mongodb://mongo:27017", description="MongoDB connection string")
 
-    mongo_db_name: str = Field(
-        default="asset_management",
-        description="Database name"
-    )
+    mongo_db_name: str = Field(default="asset_management", description="Database name")
 
-    mongo_max_pool_size: int = Field(
-        default=10,
-        ge=1,
-        le=100,
-        description="Max Connection in pool"
-    )
+    mongo_max_pool_size: int = Field(default=10, ge=1, le=100, description="Max Connection in pool")
 
-    mongo_min_pool_size: int = Field(
-        default=5,
-        ge=1,
-        le=100,
-        description="Min Connection in pool"
-    )
+    mongo_min_pool_size: int = Field(default=5, ge=1, le=100, description="Min Connection in pool")
 
     # Field names already encode the MONGO_ namespace; using env_prefix here
     # would cause a doubled prefix (MONGO_MONGO_URL) and silently ignore
     # env-var overrides. See issue #6.
-    model_config = SettingsConfigDict(
-        case_sensitive=False,
-        extra="ignore"
-    )
+    model_config = SettingsConfigDict(case_sensitive=False, extra="ignore")
 
 
 class ClientSettings(BaseSettings):
@@ -65,29 +46,21 @@ class ClientSettings(BaseSettings):
 
 class CelerySettings(BaseSettings):
     """Celery settings"""
+
     broker_url: str = Field(
-        default="amqp://guest:guest@localhost:5672//",
-        description="Celery broker connection string"
+        default="amqp://guest:guest@localhost:5672//", description="Celery broker connection string"
     )
 
-    result_backend: str = Field(
-        default="rpc://",
-        description="Result backend"
-    )
+    result_backend: str = Field(default="rpc://", description="Result backend")
 
-    model_config = SettingsConfigDict(
-        env_prefix="CELERY_",
-        case_sensitive=False,
-        extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_prefix="CELERY_", case_sensitive=False, extra="ignore")
 
 
 class RedisSettings(BaseSettings):
     """Redis settings"""
 
     redis_url: str = Field(
-        default="redis://localhost:6379/0",
-        description="Redis connection string"
+        default="redis://localhost:6379/0", description="Redis connection string"
     )
 
     redis_max_connections: int = Field(
@@ -97,18 +70,13 @@ class RedisSettings(BaseSettings):
     )
 
     # Field names already encode REDIS_; env_prefix would double it. See #6.
-    model_config = SettingsConfigDict(
-        case_sensitive=False,
-        extra="ignore"
-    )
+    model_config = SettingsConfigDict(case_sensitive=False, extra="ignore")
 
 
 class APISettings(BaseSettings):
     """API settings"""
-    api_host: str = Field(
-        default="0.0.0.0",
-        description="API host"
-    )
+
+    api_host: str = Field(default="0.0.0.0", description="API host")
 
     api_port: int = Field(
         default=8080,
@@ -116,75 +84,41 @@ class APISettings(BaseSettings):
         le=65535,
     )
 
-    api_debug: bool = Field(
-        default=False,
-        description="Debug mode"
-    )
+    api_debug: bool = Field(default=False, description="Debug mode")
 
     api_cors_origins: list[str] = Field(
-        default=["http://localhost:5173", "http://localhost:3000"],
-        description="CORS origins"
+        default=["http://localhost:5173", "http://localhost:3000"], description="CORS origins"
     )
 
-    api_jwt_secret_key: SecretStr = Field(
-        default=SecretStr("secret"),
-        description="JWT secret key"
-    )
+    api_jwt_secret_key: SecretStr = Field(default=SecretStr("secret"), description="JWT secret key")
 
-    api_jwt_algorithm: str = Field(
-        default="HS256",
-        description="JWT algorithm"
-    )
+    api_jwt_algorithm: str = Field(default="HS256", description="JWT algorithm")
 
-    api_jwt_expiration_minutes: int = Field(
-        default=60,
-        description="JWT expiration minutes"
-    )
+    api_jwt_expiration_minutes: int = Field(default=60, description="JWT expiration minutes")
 
     api_jwt_refresh_token_expiration_days: int = Field(
-        default=7,
-        description="JWT refresh token expiration days"
+        default=7, description="JWT refresh token expiration days"
     )
 
-    api_rate_limit_enabled: bool = Field(
-        default=True,
-        description="Enable/disable rate limiting"
-    )
+    api_rate_limit_enabled: bool = Field(default=True, description="Enable/disable rate limiting")
 
-    api_limit_per_minute: int = Field(
-        default=100,
-        description="Limit per minute"
-    )
+    api_limit_per_minute: int = Field(default=100, description="Limit per minute")
 
     # Field names already encode API_; env_prefix would double it. See #6.
-    model_config = SettingsConfigDict(
-        case_sensitive=False,
-        extra="ignore"
-    )
+    model_config = SettingsConfigDict(case_sensitive=False, extra="ignore")
 
 
 class LoggingSettings(BaseSettings):
     """Logging settings"""
-    log_level: str = Field(
-        default="INFO",
-        description="Log level"
-    )
 
-    log_format: str = Field(
-        default="json",
-        description="Log format"
-    )
+    log_level: str = Field(default="INFO", description="Log level")
 
-    log_file: str = Field(
-        default="/var/log/adapter-system.log",
-        description="Log file"
-    )
+    log_format: str = Field(default="json", description="Log format")
+
+    log_file: str = Field(default="/var/log/adapter-system.log", description="Log file")
 
     # Field names already encode LOG_; env_prefix would double it. See #6.
-    model_config = SettingsConfigDict(
-        case_sensitive=False,
-        extra="ignore"
-    )
+    model_config = SettingsConfigDict(case_sensitive=False, extra="ignore")
 
 
 class Settings(BaseSettings):
@@ -193,13 +127,12 @@ class Settings(BaseSettings):
     environment: Literal["production", "development"] = Field(default="development")
 
     customer_id: str = Field(
-        default="default_customer_id",
-        description="Unique customer identifier for this instance"
+        default="default_customer_id", description="Unique customer identifier for this instance"
     )
 
     instance_id: str = Field(
         default="default_instance_id",
-        description="Unique instance identifier (e.g., acme-prod-us-east-1)"
+        description="Unique instance identifier (e.g., acme-prod-us-east-1)",
     )
 
     client: ClientSettings = Field(default_factory=ClientSettings)
@@ -217,7 +150,6 @@ class Settings(BaseSettings):
         extra="ignore",
         case_sensitive=False,
     )
-
 
 
 settings = Settings()

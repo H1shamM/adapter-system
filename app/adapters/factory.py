@@ -1,8 +1,8 @@
-from app.adapters.JSONPlaceholder.adapter import JSONPlaceholderAdapter
 from app.adapters.aws.adapter import AWSAdapter, AWSConfig
-from app.adapters.base import BaseAdapter, AdapterConfig
+from app.adapters.base import AdapterConfig, BaseAdapter
 from app.adapters.coingecko.adapter import CoinGeckoAdapter
 from app.adapters.github_adapter.adapter import GitHubAdapter, GitHubConfig
+from app.adapters.JSONPlaceholder.adapter import JSONPlaceholderAdapter
 from app.adapters.mock_adapter.adapter import MockAdapter, MockConfig
 from app.adapters.perf_test.adapter import PerfTestAdapter, PerfTestConfig
 from app.adapters.random_user.adapter import RandomUserAdapter
