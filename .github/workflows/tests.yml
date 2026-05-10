@@ -52,6 +52,17 @@ jobs:
             --cov-report=term \
             -v
 
+      - name: Enforce 70%+ coverage on app/services and app/storage
+        # Re-runs the suite scoped to the targeted modules so the
+        # threshold applies exactly to them. Sprint 1 Story 1.4.
+        run: |
+          pytest app/tests/unit/ app/tests/contract/ \
+            --cov=app.services \
+            --cov=app.storage \
+            --cov-report=term \
+            --cov-fail-under=70 \
+            -q
+
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         if: always()
