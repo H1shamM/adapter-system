@@ -1,6 +1,6 @@
 from typing import Literal
 
-AuthType = Literal["none", "bearer", "api_key", "aws_sigv4"]
+AuthType = Literal["none", "bearer", "api_key", "aws_sigv4", "oauth2_client_credentials"]
 
 SUPPORTED_ADAPTERS = {
     "github",
@@ -10,4 +10,5 @@ SUPPORTED_ADAPTERS = {
     "jsonplaceholder",
     "coingecko",
     "perftest",
+    "auth0",
 }

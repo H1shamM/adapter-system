@@ -1,3 +1,5 @@
+from app.adapters.auth0.adapter import Auth0Adapter
+from app.adapters.auth0.config import Auth0Config
 from app.adapters.aws.adapter import AWSAdapter, AWSConfig
 from app.adapters.base import AdapterConfig, BaseAdapter
 from app.adapters.coingecko.adapter import CoinGeckoAdapter
@@ -15,6 +17,7 @@ ADAPTER_REGISTRY = {
     "coingecko": (CoinGeckoAdapter, AdapterConfig),
     "randomuser": (RandomUserAdapter, AdapterConfig),
     "perftest": (PerfTestAdapter, PerfTestConfig),
+    "auth0": (Auth0Adapter, Auth0Config),
 }
 
 

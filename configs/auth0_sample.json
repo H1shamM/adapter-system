@@ -1,0 +1,16 @@
+{
+  "name": "auth0",
+  "enabled": true,
+  "sync_interval": 3600,
+  "priority": "high",
+  "asset_types": ["user"],
+  "base_url": "https://dev-d1fkow8qwvxutvxp.us.auth0.com",
+  "domain": "dev-d1fkow8qwvxutvxp.us.auth0.com",
+  "auth_type": "oauth2_client_credentials",
+  "auth_config": {
+    "client_id": "VAR:AUTH0_CLIENT_ID",
+    "client_secret": "VAR:AUTH0_CLIENT_SECRET",
+    "audience": "https://dev-d1fkow8qwvxutvxp.us.auth0.com/api/v2/",
+    "token_url": "https://dev-d1fkow8qwvxutvxp.us.auth0.com/oauth/token"
+  }
+}
