@@ -5,6 +5,7 @@ import logging
 import sys
 import traceback
 
+from dotenv import load_dotenv
 from fastapi.exceptions import ValidationException
 
 from app.adapters.errors import AuthenticationError, FetchError, NormalizationError
@@ -48,7 +49,7 @@ def main():
 
     adapter_name = args.adapter.strip().lower()
 
-    # load_dotenv()
+    load_dotenv()
 
     try:
         AdapterSyncRequest(config=config)
