@@ -1,5 +1,6 @@
 import asyncio
 import os
+import time
 from typing import Any, Callable, Dict, List, Optional
 from urllib.parse import parse_qs, urlparse
 
@@ -70,6 +71,18 @@ class AssetHttpClient:
             header = self.config.auth_config.get("header", "X-API-KEY")
             self.client.headers[header] = key
 
+        elif auth_type == "oauth2_client_credentials":
+            client_id = self._resolve_secret(self.config.auth_config["client_id"])
+            client_secret = self._resolve_secret(self.config.auth_config["client_secret"])
+            audience = self._resolve_secret(self.config.auth_config["audience"])
+            token_url = self._resolve_secret(self.config.auth_config["token_url"])
+            self.config.auth_config["client_id"] = client_id
+            self.config.auth_config["client_secret"] = client_secret
+            self.config.auth_config["audience"] = audience
+            self.config.auth_config["token_url"] = token_url
+            self._token = None
+            self._token_expires_at = 0
+
     def _resolve_secret(self, value: Any):
         """
         Resolve a value ,checking if it's an env variable reference
@@ -81,7 +94,10 @@ class AssetHttpClient:
 
     async def request(self, method: str, path: str, **kwargs) -> httpx.Response:
         """Core request method with retry logic"""
-        full_url = f"{self.config.base_url}{path}"
+        if path.startswith("http://") or path.startswith("https://"):
+            full_url = path
+        else:
+            full_url = f"{self.config.base_url}{path}"
 
         # Set default timeout
         kwargs.setdefault("timeout", self.config.default_timeout)
@@ -163,7 +179,7 @@ class AssetHttpClient:
 
             # Get next page parameters
             next_page_params = self._get_next_page_params(
-                response, pagination, current_page, page_size
+                response, pagination, current_page, page_size, len(page_data)
             )
 
             # Custom next page handler
@@ -196,7 +212,12 @@ class AssetHttpClient:
         return results
 
     def _get_next_page_params(
-        self, response: httpx.Response, strategy: str, current_page: int, page_size: int
+        self,
+        response: httpx.Response,
+        strategy: str,
+        current_page: int,
+        page_size: int,
+        page_data_len: int = 0,
     ) -> Optional[Dict]:
         """
         Determine parameters for next page request
@@ -214,6 +235,11 @@ class AssetHttpClient:
                     parsed = urlparse(next_url)
                     return parse_qs(parsed.query)
         elif strategy == "page_number":
+            # Stop once a page comes back with fewer than a full page of results --
+            # otherwise this walks forever (up to max_pages) regardless of real data,
+            # which is what let it walk past Auth0's actual 1000-record paging limit.
+            if page_data_len < page_size:
+                return None
             return {"page": current_page + 1, "per_page": page_size}
         elif strategy == "offset":
             content = response.json()
@@ -222,6 +248,28 @@ class AssetHttpClient:
             return {"offset": content.get("offset", 0) + page_size}
 
         return None
+
+    async def ensure_token(self):
+        if self._token and time.time() < self._token_expires_at - 60:  # 60s safety margin
+            return
+
+        resp = await self.request(
+            "POST",
+            self.config.auth_config["token_url"],
+            json={
+                "client_id": self.config.auth_config["client_id"],
+                "client_secret": self.config.auth_config["client_secret"],
+                "grant_type": "client_credentials",
+                "audience": self.config.auth_config["audience"],
+            },
+        )
+        body = resp.json()
+        token = body.get("access_token")
+        self._token = token
+        self._token_expires_at = time.time() + body.get("expires_in", 0)
+        if not token:
+            raise ValueError("oauth2_client_credentials: token response had no access_token")
+        self.client.headers.update({"Authorization": f"Bearer {token}"})
 
     async def close(self):
         await self.client.aclose()
