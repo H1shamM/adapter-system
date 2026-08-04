@@ -2,7 +2,7 @@
 
 Tracks what's shipped, what's in flight, and the upcoming sprint plan.
 
-Last updated: 2026-05-07
+Last updated: 2026-08-02
 
 ---
 
@@ -94,11 +94,26 @@ Goal: Demonstrate the "add a new integration in 3 methods" claim.
 
 | # | Story | Size |
 |---|-------|------|
+| 4.0 | Auth0 adapter (users + roles, via the Management API) -- real multi-endpoint complexity: OAuth2 client-credentials auth (Machine-to-Machine app), page-based pagination, per-endpoint rate limits, roles-per-role batch-fetch-and-invert vs. per-user N+1 tradeoff | L |
 | 4.1 | Stripe adapter (charges + customers) | M |
 | 4.2 | Slack adapter (channels + messages) | M |
 | 4.3 | Linear adapter (issues + projects) | M |
 | 4.4 | Adapter contract test suite -- shared tests every adapter must pass | S |
 | 4.5 | Documentation: "How to add a new adapter in 30 minutes" with screencast/walkthrough | S |
+
+### Sprint 5 -- Agentic Adapter Authoring
+
+Goal: Build the build-time/run-time agent design (drafted for an Orchid Security system-design interview,
+2026-08-02) for real -- an agent that drafts new adapters from vendor API docs, with a verification gate
+before anything ships. Depends on 4.0 (Okta) shipping first as the concrete comparison target.
+
+| # | Story | Size |
+|---|-------|------|
+| 5.1 | Build-time agent: given a vendor's API docs, draft a `connect`/`fetch_raw`/`normalize` adapter skeleton against `BaseAdapter` | L |
+| 5.2 | Verification layer: generated adapter must pass the Sprint 4.4 contract test suite + mocked-data tests before it's eligible to ship | M |
+| 5.3 | Human-review gate: generated adapter sits in a draft/PR state, never auto-merged, until a person approves | S |
+| 5.4 | Runtime stays deterministic: confirm/document that the agent runs ONLY at authoring time -- no LLM call anywhere in the `execute()` hot path | S |
+| 5.5 | Drift handling: if a vendor's API changes and an adapter starts failing, the agent proposes a fix, but re-enters the same verification gate (5.2/5.3), not an auto-deploy | M |
 
 ---
 
