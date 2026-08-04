@@ -64,6 +64,18 @@ MINIMAL_CONFIGS: Dict[str, dict] = {
         "asset_count": 3,
         "sync_duration_seconds": 60,
     },
+    "auth0": {
+        "name": "auth0-test",
+        "base_url": "https://dev-test.us.auth0.com",
+        "domain": "dev-test.us.auth0.com",
+        "auth_type": "oauth2_client_credentials",
+        "auth_config": {
+            "client_id": "test-client-id",
+            "client_secret": "test-client-secret",
+            "audience": "https://dev-test.us.auth0.com/api/v2/",
+            "token_url": "https://dev-test.us.auth0.com/oauth/token",
+        },
+    },
 }
 
 # Representative raw response shapes. Each adapter's normalize() must
@@ -114,6 +126,18 @@ SAMPLE_RAW_DATA: Dict[str, List[dict]] = {
             "name": "Test asset 0",
             "status": "active",
             "created_at": "2024-01-01T00:00:00",
+        }
+    ],
+    "auth0": [
+        {
+            "user_id": "auth0|contract-test-1",
+            "name": "Contract Test User",
+            "email": "contract-test@example.com",
+            "email_verified": True,
+            "updated_at": "2024-01-01T00:00:00.000Z",
+            "created_at": "2024-01-01T00:00:00.000Z",
+            "app_metadata": {"department": "Engineering"},
+            "_roles": ["Viewer"],
         }
     ],
 }
