@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Dict, List
 
-import requests
+import httpx
 from pydantic import Field
 
 from app.adapters.base import AdapterConfig, BaseAdapter
@@ -27,7 +27,7 @@ class GitHubAdapter(BaseAdapter):
         try:
             await self.client.get(f"/repos/{self.config.repo}/issues")
             return None
-        except requests.HTTPError as err:
+        except httpx.HTTPStatusError as err:
             if err.response.status_code == 401:
                 raise AuthenticationError("GitHub authentication failed") from err
             raise
