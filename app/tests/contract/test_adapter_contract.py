@@ -76,6 +76,12 @@ MINIMAL_CONFIGS: Dict[str, dict] = {
             "token_url": "https://dev-test.us.auth0.com/oauth/token",
         },
     },
+    "slack": {
+        "name": "slack-test",
+        "base_url": "https://slack.com/api",
+        "auth_type": "bearer",
+        "auth_config": {"token": "xoxb-test-token"},
+    },
 }
 
 # Representative raw response shapes. Each adapter's normalize() must
@@ -138,6 +144,16 @@ SAMPLE_RAW_DATA: Dict[str, List[dict]] = {
             "created_at": "2024-01-01T00:00:00.000Z",
             "app_metadata": {"department": "Engineering"},
             "_roles": ["Viewer"],
+        }
+    ],
+    "slack": [
+        {
+            "type": "message",
+            "ts": "1704067200.000100",
+            "text": "Contract test message",
+            "user": "U0CONTRACT1",
+            "_channel_id": "C0CONTRACT1",
+            "_channel_name": "general",
         }
     ],
 }
