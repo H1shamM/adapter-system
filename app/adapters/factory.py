@@ -8,6 +8,8 @@ from app.adapters.JSONPlaceholder.adapter import JSONPlaceholderAdapter
 from app.adapters.mock_adapter.adapter import MockAdapter, MockConfig
 from app.adapters.perf_test.adapter import PerfTestAdapter, PerfTestConfig
 from app.adapters.random_user.adapter import RandomUserAdapter
+from app.adapters.slack.adapter import SlackAdapter
+from app.adapters.slack.config import SlackConfig
 
 ADAPTER_REGISTRY = {
     "github": (GitHubAdapter, GitHubConfig),
@@ -18,6 +20,7 @@ ADAPTER_REGISTRY = {
     "randomuser": (RandomUserAdapter, AdapterConfig),
     "perftest": (PerfTestAdapter, PerfTestConfig),
     "auth0": (Auth0Adapter, Auth0Config),
+    "slack": (SlackAdapter, SlackConfig),
 }
 
 

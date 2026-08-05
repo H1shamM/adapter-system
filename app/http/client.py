@@ -148,7 +148,7 @@ class AssetHttpClient:
         self,
         path: str,
         params: Optional[Dict] = None,
-        pagination: str = "link_header",  # 'link_header' | 'page_number' | 'offset'
+        pagination: str = "link_header",  # 'link_header' | 'page_number' | 'offset' | 'cursor_body'
         page_size: int = 100,
         max_pages: int = 100,
         extract_data: Callable[[Dict], List] = lambda r: r["items"],
@@ -195,7 +195,7 @@ class AssetHttpClient:
             if not next_page_params:
                 break
 
-            if pagination == "link_header":
+            if pagination in ("link_header", "cursor_body"):
                 next_params = next_page_params
                 current_page += 1
                 continue
@@ -223,7 +223,14 @@ class AssetHttpClient:
         Determine parameters for next page request
         """
 
-        if strategy == "link_header":
+        if strategy == "cursor_body":
+            # Cursor lives in the response BODY (e.g. Slack's response_metadata.next_cursor),
+            # not a Link header or a page/offset param -- a distinct shape from the other three.
+            next_cursor = response.json().get("response_metadata", {}).get("next_cursor")
+            if next_cursor:
+                return {"cursor": next_cursor}
+            return None
+        elif strategy == "link_header":
             link_header = response.headers.get("Link", "")
             if 'rel="next"' in link_header:
                 next_url = None
