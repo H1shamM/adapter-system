@@ -66,13 +66,18 @@ recurring failure mode; the fix is to make diagnosis+repair faster, not to remov
 - Not auto-merge. A generated adapter has exactly the same review bar as a human-written one.
 - Not a replacement for the contract test suite (4.4) -- it's a consumer of it.
 
-## Open questions (resolve before implementing Sprint 5 stories)
+## Decisions (resolved 2026-08-05)
 
-1. Which model/harness authors the draft (Claude Code against the repo directly, vs. a narrower
-   docs-in/code-out agent)?
-2. How is "vendor API docs" supplied -- a URL to fetch, a pasted OpenAPI spec, or free text?
-3. What does a failed verification loop look like -- does the agent get one automatic retry with the
-   failure output before falling to human triage?
+1. **Harness**: Claude Code, working directly against the repo, human-in-the-loop -- same shape as
+   the Auth0 build (Sprint 4.0). Not a narrower docs-in/code-out agent; the repo's own conventions
+   (BaseAdapter contract, existing adapters as examples, CLAUDE.md) are part of what makes the draft
+   good, and a human is present to redirect it the same way Hisham redirected/reviewed this build.
+2. **Vendor docs input**: primarily a URL for the agent to fetch directly. If the agent can't find or
+   access usable docs at that URL, fall back to a pasted spec/free-text description rather than
+   guessing -- don't let it draft an adapter against docs it never actually read.
+3. **Failed verification**: one automatic retry, with the failure output (test failures, schema gaps)
+   fed back to the agent so it can self-correct once. If it fails a second time, stop and hand off to
+   human triage -- no infinite retry loop, no silent failure.
 
 ## Links
 
