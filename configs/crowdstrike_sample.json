@@ -1,0 +1,15 @@
+{
+  "name": "crowdstrike",
+  "enabled": true,
+  "sync_interval": 3600,
+  "priority": "high",
+  "asset_types": ["device", "user"],
+  "base_url": "https://api.us-1.crowdstrike.com",
+  "auth_type": "oauth2_client_credentials",
+  "auth_config": {
+    "client_id": "VAR:CROWDSTRIKE_CLIENT_ID",
+    "client_secret": "VAR:CROWDSTRIKE_CLIENT_SECRET",
+    "token_url": "/oauth2/token",
+    "token_body_format": "form"
+  }
+}

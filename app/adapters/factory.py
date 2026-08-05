@@ -3,6 +3,8 @@ from app.adapters.auth0.config import Auth0Config
 from app.adapters.aws.adapter import AWSAdapter, AWSConfig
 from app.adapters.base import AdapterConfig, BaseAdapter
 from app.adapters.coingecko.adapter import CoinGeckoAdapter
+from app.adapters.crowdstrike.adapter import CrowdStrikeAdapter
+from app.adapters.crowdstrike.config import CrowdStrikeConfig
 from app.adapters.github_adapter.adapter import GitHubAdapter, GitHubConfig
 from app.adapters.JSONPlaceholder.adapter import JSONPlaceholderAdapter
 from app.adapters.mock_adapter.adapter import MockAdapter, MockConfig
@@ -21,6 +23,7 @@ ADAPTER_REGISTRY = {
     "perftest": (PerfTestAdapter, PerfTestConfig),
     "auth0": (Auth0Adapter, Auth0Config),
     "slack": (SlackAdapter, SlackConfig),
+    "crowdstrike": (CrowdStrikeAdapter, CrowdStrikeConfig),
 }
 
 
