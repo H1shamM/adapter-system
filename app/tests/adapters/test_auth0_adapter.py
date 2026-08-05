@@ -129,7 +129,8 @@ def test_auth0_normalize_sparse_user_uses_fallbacks(auth0_config):
     assert isinstance(assets[0], NormalizedAsset)
     assert assets[0].asset_id == "auth0|2"
     assert assets[0].name == "alice@example.com"
-    assert assets[0].last_seen == datetime.fromisoformat("2026-08-04T08:59:03.789Z")
+    assert (assets[0].last_seen ==
+            datetime.fromisoformat("2026-08-04T08:59:03.789Z"))
     assert assets[0].status == "ACTIVE"
 
 
