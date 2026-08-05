@@ -94,12 +94,15 @@ Goal: Demonstrate the "add a new integration in 3 methods" claim.
 
 | # | Story | Size |
 |---|-------|------|
-| 4.0 | Auth0 adapter (users + roles, via the Management API) -- real multi-endpoint complexity: OAuth2 client-credentials auth (Machine-to-Machine app), page-based pagination, per-endpoint rate limits, roles-per-role batch-fetch-and-invert vs. per-user N+1 tradeoff | L |
-| 4.1 | Stripe adapter (charges + customers) | M |
-| 4.2 | Slack adapter (channels + messages) | M |
-| 4.3 | Linear adapter (issues + projects) | M |
-| 4.4 | Adapter contract test suite -- shared tests every adapter must pass | S |
-| 4.5 | Documentation: "How to add a new adapter in 30 minutes" with screencast/walkthrough | S |
+| # | Story | Size | Status |
+|---|-------|------|--------|
+| 4.0 | Auth0 adapter (users + roles, via the Management API) -- real multi-endpoint complexity: OAuth2 client-credentials auth (Machine-to-Machine app), page-based pagination, per-endpoint rate limits, roles-per-role batch-fetch-and-invert vs. per-user N+1 tradeoff | L | done (#18) |
+| 4.1 | Stripe adapter (charges + customers) | M | open |
+| 4.2 | Slack adapter (channels + messages) | M | done (#22) -- drafted by build-adapter-from-docs, not hand-guided |
+| 4.3 | Linear adapter (issues + projects) | M | open |
+| 4.4 | Adapter contract test suite -- shared tests every adapter must pass | S | done |
+| 4.5 | Documentation: "How to add a new adapter in 30 minutes" with screencast/walkthrough | S | open |
+| 4.6 | **NEXT UP** -- CrowdStrike Falcon adapter (devices + users + roles/permissions). Chosen because Axonius's own real CrowdStrike Falcon adapter fetches exactly these entities (confirmed via docs.axonius.com) -- directly ties to Hisham's real Axonius background. Run via the `build-adapter-from-docs` skill in a FRESH session (skills created mid-session aren't invokable in the session that created them -- discovery happens at session start; this was confirmed the hard way in the session that researched this entry). Docs: auth `https://developer.crowdstrike.com/api-reference/collections/oauth2/`, devices `https://developer.crowdstrike.com/api-reference/collections/hosts/`, users/roles/permissions `https://developer.crowdstrike.com/api-reference/collections/user-management/`. Real wrinkles already researched (RESEARCH ONLY -- no code written, nothing in `app/http/client.py` changed; the skill should make these decisions itself, same as it did for Auth0/Slack): (1) CrowdStrike's OAuth2 token request is form-encoded (`application/x-www-form-urlencoded`) with only `client_id`/`client_secret` -- no `grant_type`/`audience`, unlike Auth0's JSON+grant_type+audience shape; `_setup_auth`'s `oauth2_client_credentials` branch and `ensure_token()` currently hardcode Auth0's exact shape and will need generalizing (e.g. resolve only whichever of audience/grant_type are actually present in `auth_config`, and support a `token_body_format` flag for form vs JSON). (2) CrowdStrike's pagination cursor lives in `meta.pagination.offset` in the response body -- same *shape* as Slack's `cursor_body` (cursor in the body, not a header or client-computed number) but a different field path and request-param name (`offset`, not `cursor`); `_get_next_page_params`'s `cursor_body` branch currently hardcodes Slack's exact path and will need a configurable field-path/param-name instead. (3) CrowdStrike returns normal HTTP status codes for auth failures (401/403) -- unlike Slack's always-200-with-`ok:false` quirk, so `connect()` can use the standard `httpx.HTTPStatusError` pattern same as Auth0/GitHub. (4) Devices come back fully hydrated from one endpoint (`GET /devices/combined/devices/v1`, offset-paginated, `resources` key), so no separate query-then-hydrate step is needed for the device entity. | L | not started |
 
 ### Sprint 5 -- Agentic Adapter Authoring
 
