@@ -9,7 +9,9 @@ node_modules/
 .DS_Store
 *.log
 .playwright-mcp/
-.claude/
+.claude/settings.local.json
+# .claude/skills/ is intentionally tracked -- see CLAUDE.md, which documents these as
+# part of the repo's own workflow (add-adapter, build-adapter-from-docs, etc.)
 
 # Local scratch / sandbox checkouts (e.g. reference repos cloned for inspection)
 tmp/

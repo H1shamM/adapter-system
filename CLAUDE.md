@@ -101,8 +101,10 @@ cd ui && npm run lint && npm run build
 
 Use these skills instead of writing scaffolding by hand:
 
-- `add-adapter` -- scaffolds a new adapter (BaseAdapter + config + factory + registry entries). See `.claude/skills/add-adapter/SKILL.md`.
+- `add-adapter` -- scaffolds a new adapter (BaseAdapter + config + factory + registry entries) with TODO stubs for a human to fill in. See `.claude/skills/add-adapter/SKILL.md`.
 - `add-adapter-tests` -- generates unit + integration tests for an existing adapter. See `.claude/skills/add-adapter-tests/SKILL.md`.
+- `build-adapter-from-docs` -- drafts a COMPLETE, working adapter from a vendor's real API docs (real logic, not stubs), then runs it through lint/tests before handing off for human review. The Sprint 5 agentic-authoring capability (`docs/AGENTIC_ADAPTER_DESIGN.md`). See `.claude/skills/build-adapter-from-docs/SKILL.md`.
+- `diagnose-adapter-drift` -- investigates a failing adapter, isolates connection/auth/rate-limit/schema layers BEFORE assuming vendor drift, and only if it's genuinely schema drift proposes a minimal fix through the same verification + human-review gate. Never auto-patches production. See `.claude/skills/diagnose-adapter-drift/SKILL.md`.
 
 Personal-account skills (also available):
 
