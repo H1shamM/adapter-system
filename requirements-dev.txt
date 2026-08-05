@@ -7,6 +7,9 @@ pytest>=8.0.0
 pytest-asyncio>=0.23.0
 pytest-cov>=5.0.0
 pytest-mock>=3.14.0
+respx>=0.21.0  # mocks httpx at the transport layer -- exercises AssetHttpClient's REAL request()/
+               # pagination code against realistic vendor-shaped responses, not just the adapter's
+               # own methods. Standard part of the verification layer when no live account exists.
 
 # Formatting & linting
 black>=24.3.0

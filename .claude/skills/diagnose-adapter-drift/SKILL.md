@@ -70,14 +70,16 @@ reasonable fallback).
 ### 6. Re-run verification — same as build-adapter-from-docs, same retry limit
 
 ```bash
-black app/adapters/<adapter>/ app/tests/adapters/test_<adapter>_adapter.py
-isort app/adapters/<adapter>/ app/tests/adapters/test_<adapter>_adapter.py
-flake8 app/adapters/<adapter>/ app/tests/adapters/test_<adapter>_adapter.py
-pytest app/tests/adapters/test_<adapter>_adapter.py app/tests/contract/test_adapter_contract.py -v
+black app/adapters/<adapter>/ app/tests/adapters/test_<adapter>_adapter*.py
+isort app/adapters/<adapter>/ app/tests/adapters/test_<adapter>_adapter*.py
+flake8 app/adapters/<adapter>/ app/tests/adapters/test_<adapter>_adapter*.py
+pytest app/tests/adapters/test_<adapter>_adapter*.py app/tests/contract/test_adapter_contract.py -v
 pytest app/tests/ -q
 ```
-If existing tests still pass with OLD mock data that no longer reflects the vendor's real shape,
-update the mock data too — a green suite testing the wrong shape is worse than a red one.
+If existing tests (either tier -- unit or mock-endpoint) still pass with OLD data that no longer
+reflects the vendor's real shape, update the mock data too — a green suite testing the wrong shape
+is worse than a red one. If the drift is in the response shape itself, update the mock-endpoint
+tier's `respx` responses specifically -- that's the tier that's supposed to catch exactly this.
 
 One retry on verification failure, same as `build-adapter-from-docs`. If it still fails, stop and
 report for human triage — do not loop.
