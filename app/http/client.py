@@ -72,14 +72,18 @@ class AssetHttpClient:
             self.client.headers[header] = key
 
         elif auth_type == "oauth2_client_credentials":
-            client_id = self._resolve_secret(self.config.auth_config["client_id"])
-            client_secret = self._resolve_secret(self.config.auth_config["client_secret"])
-            audience = self._resolve_secret(self.config.auth_config["audience"])
-            token_url = self._resolve_secret(self.config.auth_config["token_url"])
-            self.config.auth_config["client_id"] = client_id
-            self.config.auth_config["client_secret"] = client_secret
-            self.config.auth_config["audience"] = audience
-            self.config.auth_config["token_url"] = token_url
+            # client_id/client_secret/token_url are always required. audience and grant_type are
+            # OPTIONAL -- Auth0 needs both (JSON body); CrowdStrike needs neither, just
+            # client_id/client_secret, form-encoded. Resolving only what's actually present avoids
+            # forcing every future oauth2_client_credentials vendor into Auth0's exact shape.
+            for key in ("client_id", "client_secret", "audience", "grant_type"):
+                if key in self.config.auth_config:
+                    self.config.auth_config[key] = self._resolve_secret(
+                        self.config.auth_config[key]
+                    )
+            self.config.auth_config["token_url"] = self._resolve_secret(
+                self.config.auth_config["token_url"]
+            )
             self._token = None
             self._token_expires_at = 0
 
@@ -153,9 +157,16 @@ class AssetHttpClient:
         max_pages: int = 100,
         extract_data: Callable[[Dict], List] = lambda r: r["items"],
         get_next_page: Optional[Callable[[httpx.Response], Optional[Dict]]] = None,
+        cursor_response_path: str = "response_metadata.next_cursor",
+        cursor_param_name: str = "cursor",
     ) -> List[Dict]:
         """
-        Fetch paginated resources automatically
+        Fetch paginated resources automatically. cursor_response_path/cursor_param_name only
+        apply to pagination="cursor_body" -- the cursor's location in the response body and the
+        request param it's echoed back as both vary per vendor (Slack: response_metadata.
+        next_cursor -> "cursor"; CrowdStrike: meta.pagination.offset -> "offset"), even though the
+        underlying shape (cursor lives in the body, not a header or a client-computed number) is
+        the same across both.
         """
 
         results = []
@@ -179,7 +190,13 @@ class AssetHttpClient:
 
             # Get next page parameters
             next_page_params = self._get_next_page_params(
-                response, pagination, current_page, page_size, len(page_data)
+                response,
+                pagination,
+                current_page,
+                page_size,
+                len(page_data),
+                cursor_response_path,
+                cursor_param_name,
             )
 
             # Custom next page handler
@@ -218,17 +235,24 @@ class AssetHttpClient:
         current_page: int,
         page_size: int,
         page_data_len: int = 0,
+        cursor_response_path: str = "response_metadata.next_cursor",
+        cursor_param_name: str = "cursor",
     ) -> Optional[Dict]:
         """
         Determine parameters for next page request
         """
 
         if strategy == "cursor_body":
-            # Cursor lives in the response BODY (e.g. Slack's response_metadata.next_cursor),
-            # not a Link header or a page/offset param -- a distinct shape from the other three.
-            next_cursor = response.json().get("response_metadata", {}).get("next_cursor")
-            if next_cursor:
-                return {"cursor": next_cursor}
+            # Cursor lives in the response BODY, not a Link header or a client-computed
+            # page/offset -- but WHERE in the body and what it's called on the next request both
+            # vary per vendor (see paginated_get's docstring), so both are parameterized.
+            value = response.json()
+            for key in cursor_response_path.split("."):
+                value = value.get(key) if isinstance(value, dict) else None
+                if value is None:
+                    break
+            if value:
+                return {cursor_param_name: value}
             return None
         elif strategy == "link_header":
             link_header = response.headers.get("Link", "")
@@ -260,16 +284,22 @@ class AssetHttpClient:
         if self._token and time.time() < self._token_expires_at - 60:  # 60s safety margin
             return
 
-        resp = await self.request(
-            "POST",
-            self.config.auth_config["token_url"],
-            json={
-                "client_id": self.config.auth_config["client_id"],
-                "client_secret": self.config.auth_config["client_secret"],
-                "grant_type": "client_credentials",
-                "audience": self.config.auth_config["audience"],
-            },
-        )
+        # Build the payload from whatever's actually present in auth_config, rather than
+        # hardcoding Auth0's exact 4-key shape -- CrowdStrike's client-credentials grant only
+        # wants client_id/client_secret. token_body_format picks JSON (Auth0's shape) vs
+        # form-encoded (CrowdStrike's shape); httpx form-encodes a dict passed via `data=`.
+        payload = {
+            "client_id": self.config.auth_config["client_id"],
+            "client_secret": self.config.auth_config["client_secret"],
+        }
+        for optional_key in ("grant_type", "audience"):
+            if optional_key in self.config.auth_config:
+                payload[optional_key] = self.config.auth_config[optional_key]
+
+        body_format = self.config.auth_config.get("token_body_format", "json")
+        request_kwargs = {"json": payload} if body_format == "json" else {"data": payload}
+
+        resp = await self.request("POST", self.config.auth_config["token_url"], **request_kwargs)
         body = resp.json()
         token = body.get("access_token")
         self._token = token

@@ -12,4 +12,5 @@ SUPPORTED_ADAPTERS = {
     "perftest",
     "auth0",
     "slack",
+    "crowdstrike",
 }

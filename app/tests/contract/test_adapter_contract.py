@@ -82,6 +82,17 @@ MINIMAL_CONFIGS: Dict[str, dict] = {
         "auth_type": "bearer",
         "auth_config": {"token": "xoxb-test-token"},
     },
+    "crowdstrike": {
+        "name": "crowdstrike-test",
+        "base_url": "https://api.us-1.crowdstrike.com",
+        "auth_type": "oauth2_client_credentials",
+        "auth_config": {
+            "client_id": "test-client-id",
+            "client_secret": "test-client-secret",
+            "token_url": "/oauth2/token",
+            "token_body_format": "form",
+        },
+    },
 }
 
 # Representative raw response shapes. Each adapter's normalize() must
@@ -155,6 +166,22 @@ SAMPLE_RAW_DATA: Dict[str, List[dict]] = {
             "_channel_id": "C0CONTRACT1",
             "_channel_name": "general",
         }
+    ],
+    "crowdstrike": [
+        {
+            "_entity_type": "device",
+            "device_id": "contract-test-device-1",
+            "hostname": "contract-test-host",
+            "status": "normal",
+            "last_seen": "2024-01-01T00:00:00Z",
+        },
+        {
+            "_entity_type": "user",
+            "uuid": "contract-test-user-1",
+            "first_name": "Contract",
+            "last_name": "Test",
+            "_roles": ["Viewer"],
+        },
     ],
 }
 
