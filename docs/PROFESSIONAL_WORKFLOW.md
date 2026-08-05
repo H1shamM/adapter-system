@@ -64,11 +64,14 @@ See `CLAUDE.md` for the canonical reference of abstractions and `design.md` for 
 This is the most common kind of change. Use the existing skills:
 
 ```
-/add-adapter <name>          # Scaffolds the adapter directory + factory registration
-/add-adapter-tests <name>    # Generates unit + integration tests
+
+/add-adapter <name>                          # Scaffolds the adapter directory + factory registration (TODO stubs)
+/add-adapter-tests <name>                    # Generates unit + integration tests
+/build-adapter-from-docs <name> <docs_url>   # Drafts a COMPLETE working adapter from real vendor docs
+/diagnose-adapter-drift <name>               # Investigates a failing adapter, fixes ONLY if it's real drift
 ```
 
-The skills enforce the right patterns (async httpx client, NormalizedAsset output, factory registration). Read `.claude/skills/add-adapter/SKILL.md` and `.claude/skills/add-adapter-tests/SKILL.md` for the full procedure.
+The skills enforce the right patterns (async httpx client, NormalizedAsset output, factory registration). Read `.claude/skills/add-adapter/SKILL.md`, `.claude/skills/add-adapter-tests/SKILL.md`, `.claude/skills/build-adapter-from-docs/SKILL.md`, and `.claude/skills/diagnose-adapter-drift/SKILL.md` for the full procedures.
 
 ### Adapter PR checklist
 
@@ -145,8 +148,10 @@ Detailed git mechanics live in `docs/GITHUB_WORKFLOW.md`. The shape:
 
 | Skill | Purpose |
 |-------|---------|
-| `add-adapter` | Scaffold a new adapter (directory, BaseAdapter subclass, config, registry entries) |
+| `add-adapter` | Scaffold a new adapter (directory, BaseAdapter subclass, config, registry entries) with TODO stubs |
 | `add-adapter-tests` | Generate unit + integration tests for an existing adapter |
+| `build-adapter-from-docs` | Draft a complete, working adapter from real vendor API docs, verify, hand off for review |
+| `diagnose-adapter-drift` | Investigate a failing adapter, isolate the real cause, fix ONLY if it's genuine schema drift, through the same verification gate |
 
 Personal-account skills used when relevant:
 
