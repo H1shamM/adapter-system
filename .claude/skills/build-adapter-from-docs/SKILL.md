@@ -80,23 +80,36 @@ Create `app/adapters/<vendor>/{__init__.py,config.py,adapter.py}`:
   `app/adapters/registry.py`
 - Add `configs/<vendor>_sample.json`, secrets via `VAR:` indirection, never real values
 
-### 6. Write tests
+### 6. Write tests — TWO tiers, not one
 
-- `app/tests/adapters/test_<vendor>_adapter.py` — connect success/failure, fetch_raw's actual
-  batching/pagination behavior (assert call counts where that's the point, like Auth0's and Slack's
-  N+1-avoidance assertions), normalize on both a rich and a deliberately sparse input
+- **Unit tier** (`app/tests/adapters/test_<vendor>_adapter.py`): mocks the adapter's own
+  `client.request()`/`paginated_get()`. Fast, tests business logic in isolation -- connect
+  success/failure, fetch_raw's actual batching/pagination behavior (assert call counts where
+  that's the point, like Auth0's and Slack's N+1-avoidance assertions), normalize on both a rich
+  and a deliberately sparse input.
+- **Mock-endpoint tier** (`app/tests/adapters/test_<vendor>_adapter_mock_endpoints.py`) --
+  REQUIRED, not optional, when there's no live vendor account (the normal case: most vendors
+  aren't as easy to sign up for as Auth0/Slack were -- see CrowdStrike, which needs a form + ~24hr
+  wait + real sensor deployment just to get device data). Uses `respx` to mock HTTP at the
+  transport layer, with response bodies shaped exactly like the vendor's documented fields, so
+  `AssetHttpClient`'s REAL request/pagination/auth code actually runs -- not just the adapter's
+  business logic. This is the tier that would have caught the Auth0 URL-concatenation bug even
+  without a live tenant. Pattern: `app/tests/adapters/test_crowdstrike_adapter_mock_endpoints.py`.
 - Add `<vendor>` entries to `MINIMAL_CONFIGS` and `SAMPLE_RAW_DATA` in
   `app/tests/contract/test_adapter_contract.py`
 
 ### 7. Run the verification layer
 
 ```bash
-black app/adapters/<vendor>/ app/tests/adapters/test_<vendor>_adapter.py
-isort app/adapters/<vendor>/ app/tests/adapters/test_<vendor>_adapter.py
-flake8 app/adapters/<vendor>/ app/tests/adapters/test_<vendor>_adapter.py
-pytest app/tests/adapters/test_<vendor>_adapter.py app/tests/contract/test_adapter_contract.py -v
+black app/adapters/<vendor>/ app/tests/adapters/test_<vendor>_adapter*.py
+isort app/adapters/<vendor>/ app/tests/adapters/test_<vendor>_adapter*.py
+flake8 app/adapters/<vendor>/ app/tests/adapters/test_<vendor>_adapter*.py
+pytest app/tests/adapters/test_<vendor>_adapter*.py app/tests/contract/test_adapter_contract.py -v
 pytest app/tests/ -q   # full regression -- confirm nothing else broke
 ```
+
+Report both what mock-endpoint tests proved (realistic-shaped data is handled correctly) and what
+they didn't (whether the vendor's real API actually returns that shape) -- don't blur the two.
 
 ### 8. One retry on failure, then stop
 

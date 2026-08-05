@@ -71,13 +71,32 @@ no "it's just a small fix" exception.
 ### Verification layer, concretely
 
 - Sprint 4.4 contract test suite (every adapter must satisfy `BaseAdapter`'s behavioral contract)
-- Adapter-specific unit tests against mocked/recorded vendor responses
+- Adapter-specific unit tests against mocked/recorded vendor responses (mocking the adapter's own
+  `client.request()`/`paginated_get()` -- fast, tests business logic in isolation)
+- **Mock-ENDPOINT tests (resolved 2026-08-06) -- a required second tier, not optional.** Unit tests
+  that mock the adapter's own methods never exercise `AssetHttpClient`'s actual code: URL
+  construction, the retry loop, the pagination strategy's real parsing logic. That's exactly where
+  real bugs lived during the Auth0 build (the URL-concatenation bug, the `"a" or "b" in x`
+  operator-precedence bug) -- bugs a method-mocked unit test cannot catch by construction, because
+  it bypasses the code where they live. Mock-endpoint tests instead mock HTTP at the *transport*
+  layer (`respx`, added to `requirements-dev.txt`), with response bodies shaped exactly like the
+  vendor's real documented fields, so the adapter's real request/pagination/auth code actually runs
+  against them. **This is the standard answer to "we can't sign up for every vendor we build an
+  adapter for"** -- CrowdStrike's real trial needs a form + ~24hr wait + actual sensor deployment to
+  get real device data (a much heavier ask than Auth0's instant dev-tenant signup or Slack's free
+  workspace), so mock-endpoint tests are what verification relies on when a live account isn't
+  practical. See `app/tests/adapters/test_crowdstrike_adapter_mock_endpoints.py` for the pattern.
 - Schema completeness check: does `normalize()` populate every REQUIRED `NormalizedAsset` field
   (`asset_id`, `customer_id`, `name`) for realistic inputs — gate on this specifically, not just
   "tests pass". (The Axonius lesson: missing id/name breaks correlation downstream — see
   `axonius_stories_bank.md` Story 2. Verification should catch this before it ships, not after a
   customer's device/user count looks wrong.)
 - `black` / `isort` / `flake8` + full regression suite (see both skills for the exact commands)
+
+**Honesty boundary, still true even with mock-endpoint tests**: this proves the adapter handles
+realistic-*shaped* data correctly. It does not prove the vendor's real API actually returns that
+shape -- only a live account (like Auth0's) closes that gap. Say both things if asked, not just the
+reassuring half.
 
 ### Human review gate
 
