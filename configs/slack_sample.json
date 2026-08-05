@@ -1,0 +1,14 @@
+{
+  "name": "slack",
+  "enabled": true,
+  "sync_interval": 3600,
+  "priority": "medium",
+  "asset_types": ["message"],
+  "base_url": "https://slack.com/api",
+  "auth_type": "bearer",
+  "auth_config": {
+    "token": "VAR:SLACK_BOT_TOKEN"
+  },
+  "channel_types": ["public_channel"],
+  "message_history_limit": 200
+}

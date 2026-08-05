@@ -11,4 +11,5 @@ SUPPORTED_ADAPTERS = {
     "coingecko",
     "perftest",
     "auth0",
+    "slack",
 }
