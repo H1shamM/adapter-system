@@ -98,13 +98,33 @@ Two real paths, not one:
    health metrics alone don't catch it because nothing errored, the data was just silently wrong. In
    this case a human explicitly triggers DIAGNOSE with the report as the starting evidence.
 
-**Open implementation question (not yet resolved):** path 1 requires something that actually watches
-metrics/alerts and invokes DIAGNOSE without a human typing a command — a Celery beat job polling
-`sync_history` for repeated failures, or a Prometheus Alertmanager webhook, are the two obvious
-candidates. Either way, this is a background-orchestration problem, not something a Skill (which runs
-inline, in a live conversation) solves alone — Skills are the right *procedure* for BUILD and DIAGNOSE
-themselves; something else needs to *call* them automatically for path 1. Resolve this before treating
-Sprint 5.5 (drift handling) as fully done at scale.
+Path 1 requires something that actually watches metrics/alerts and invokes DIAGNOSE without a human
+typing a command — a Celery beat job polling `sync_history` for repeated failures, or a Prometheus
+Alertmanager webhook, are the two obvious candidates for the watcher itself. See "Execution model"
+below for how that watcher actually invokes DIAGNOSE once it fires.
+
+## Execution model: Skill vs. Agent (resolved 2026-08-05)
+
+**Skill = the reusable procedure. Agent = who runs the procedure when no human is present to invoke
+it.** These aren't competing choices — they answer different questions.
+
+- **Human-initiated BUILD** ("go build a Stripe adapter") and **human-reported DIAGNOSE** (a customer
+  flagged an issue) both already have a human present and driving. A **Skill** is correct here — it
+  runs inline in that person's session, they watch each decision happen, same shape as the Slack build.
+- **The automated trigger path (Trigger model, path 1)** has no human present by construction — a
+  metric crossed a threshold, nobody typed anything. A Skill can't fire itself; it only runs inside an
+  active conversation. This needs an **Agent** (Claude Code's Agent tool: a separate instance, its own
+  context, can run in the background, reports back when something needs review) that the watcher
+  launches, and that agent *invokes* `diagnose-adapter-drift` — and, if a fix is needed,
+  `build-adapter-from-docs`'s repair path — on its own.
+- **Building at scale** ("draft adapters for these 10 vendors") is the same shape as the automated
+  path even though a human initiated it: instead of 10 sequential live sessions, it becomes 10
+  parallel background Agent runs, each invoking `build-adapter-from-docs` once.
+
+**What does NOT change based on this split**: the human-review gate. A background Agent invoking these
+skills stops at exactly the same place a human invoking them inline would — verification passes, a PR
+is opened, and a person approves before anything merges or deploys. Moving from Skill-invoked-by-human
+to Agent-invoked-by-watcher changes *who dials the phone*, never *who's allowed to hang up the call*.
 
 ## What this is NOT
 
@@ -128,6 +148,10 @@ Sprint 5.5 (drift handling) as fully done at scale.
    infinite retry loop, no silent failure. Same rule applies to DIAGNOSE's fix attempts.
 4. **Trigger model**: hybrid -- automated (health-metric threshold) for the majority case at scale,
    human-reported for silent-failure cases metrics can't see (see Trigger model section above).
+5. **Execution model**: Skills for anything human-initiated (inline, watched); a background Agent for
+   anything triggered without a human present (the automated diagnose path, and at-scale parallel
+   builds) -- and that Agent invokes the same Skills rather than duplicating their logic. The
+   human-review gate is identical either way (see Execution model section above).
 
 ## Proof it works, not just documented
 
@@ -135,7 +159,8 @@ Validated 2026-08-05 by actually using `build-adapter-from-docs` (not hand-holdi
 the Slack adapter (`app/adapters/slack/`) from real Slack API documentation — including extending the
 shared `AssetHttpClient` with a new `cursor_body` pagination strategy Slack genuinely required, and
 handling a real vendor quirk (Slack returns HTTP 200 even on auth failure). Passed the full verification
-layer: lint, unit tests, contract test suite, full regression (129 passing). See PR #21 / issue #20.
+layer: lint, unit tests, contract test suite, full regression (129 passing). See PR #22 (adapter) /
+PR #23 (skills) / issue #20.
 `diagnose-adapter-drift` exists but hasn't diagnosed a real failure yet -- no live drift scenario so far.
 
 ## Links
