@@ -44,16 +44,16 @@ python scripts/monitor_scaling.py        # Real-time monitoring
 
 ## Architecture
 
-**Core data flow:** API request --> Celery task --> `run_adapter_sync()` --> `build_adapter()` --> adapter.`execute()` (connect --> fetch_raw --> normalize) --> MongoDB storage
+**Core data flow:** API request --> Celery task --> `run_adapter_sync()` --> `build_adapter()` --> adapter.`stream()` (connect --> fetch_raw --> normalize, per chunk) --> one `AssetStore.store_assets()` call per chunk --> MongoDB storage
 
 **Key abstractions:**
-- `BaseAdapter` (`app/adapters/base.py`): ABC with three methods: `connect()`, `fetch_raw()`, `normalize()`. The `execute()` template method chains them.
+- `BaseAdapter` (`app/adapters/base.py`): ABC with `connect()`, `fetch_raw()`, `normalize()`. `fetch_raw()` is an async generator -- it yields raw dict chunks (one chunk for adapters with bounded results, one chunk per page for paginated/large-fleet adapters) rather than returning one fully-materialized list. `stream()` is the universal, non-overridden production entrypoint: connect + fetch_raw/normalize per chunk, with error translation. `execute()` drains `stream()` into a single list for callers that want the whole batch at once (CLI runs, tests) -- production sync (`run_adapter_sync`) calls `stream()` directly, not `execute()`.
 - `AdapterConfig` extends `HttpClientConfig` (Pydantic) -- each adapter type can define its own config subclass (e.g., `GitHubConfig`, `AWSConfig`).
 - `ADAPTER_REGISTRY` in `app/adapters/factory.py`: maps type strings to `(AdapterClass, ConfigClass)` tuples. `build_adapter()` instantiates from this registry.
 - `NormalizedAsset` (`app/models/assets.py`): unified schema all adapters normalize into.
 - `AssetHttpClient` (`app/http/client.py`): shared async httpx client with auth, pagination, and retry.
 
-**Adding a new adapter:** Create a directory under `app/adapters/`, implement `BaseAdapter` subclass, optionally create a config subclass, register in `ADAPTER_REGISTRY` and `SUPPORTED_ADAPTERS`.
+**Adding a new adapter:** Create a directory under `app/adapters/`, implement `BaseAdapter` subclass (`fetch_raw()` must be an `async def ... : yield ...` generator, not a coroutine returning a list -- see `app/adapters/github_adapter/adapter.py` for the simplest real example, `app/adapters/crowdstrike/adapter.py` for one with real per-page pagination), optionally create a config subclass, register in `ADAPTER_REGISTRY` and `SUPPORTED_ADAPTERS`.
 
 **Storage layer** (`app/storage/`): MongoDB DAOs -- `AdapterConfigStore`, `AssetStore`, `SyncHistoryStore`. Adapter configs are keyed by `adapter_id` (supports multiple instances of the same adapter type).
 

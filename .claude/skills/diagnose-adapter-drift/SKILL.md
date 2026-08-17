@@ -1,3 +1,10 @@
+---
+name: diagnose-adapter-drift
+description: Investigates a failing adapter, isolates whether the real cause is vendor-side drift versus a connection/auth/rate-limit issue, and — only if it's genuine schema/parse-layer drift — proposes and verifies a minimal fix. Never auto-commits, auto-PRs, or auto-deploys. Use when an adapter is reporting sync failures or a customer flags an integration as broken; this is Sprint 5.5 in docs/AGENTIC_ADAPTER_DESIGN.md.
+argument-hint: <adapter> [evidence]
+allowed-tools: Read Write Edit Glob Grep WebFetch Bash(ls *) Bash(cat *) Bash(black *) Bash(isort *) Bash(flake8 *) Bash(pytest *)
+---
+
 # Diagnose Adapter Drift
 
 Investigates a failing adapter (recurring "Fetch Failed" status, a sync error, or a report that an
