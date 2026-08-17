@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -59,25 +59,56 @@ async def test_slack_connect_non_auth_failure_raises_fetch_error(mocker, slack_c
 
 
 # --- fetch_raw() ---
-async def test_slack_fetch_raw_attaches_channel_context(mocker, slack_config):
+async def test_slack_fetch_raw_yields_one_page_per_channel(mocker, slack_config):
+    """Channels are yielded page by page (not required up front for a huge workspace), and each
+    channel's history is yielded as its own page instead of collecting every channel's messages
+    into one list first."""
     adapter = SlackAdapter(slack_config)
+
+    async def fake_paginate_pages(*args, **kwargs):
+        yield [{"id": "C1", "name": "general"}, {"id": "C2", "name": "random"}]
+
+    mocker.patch.object(
+        adapter.client, "paginate_pages", new=MagicMock(side_effect=fake_paginate_pages)
+    )
     mocker.patch.object(
         adapter.client,
         "paginated_get",
         new=AsyncMock(
             side_effect=[
-                [{"id": "C1", "name": "general"}, {"id": "C2", "name": "random"}],  # channels
                 [{"ts": "1.1", "text": "hi"}],  # C1 history
                 [{"ts": "2.1", "text": "yo"}],  # C2 history
             ]
         ),
     )
-    messages = await adapter.fetch_raw()
-    assert adapter.client.paginated_get.call_count == 3  # 1 channels call + 1 per channel
-    assert len(messages) == 2
-    assert messages[0]["_channel_id"] == "C1"
-    assert messages[0]["_channel_name"] == "general"
-    assert messages[1]["_channel_id"] == "C2"
+
+    pages = [page async for page in adapter.fetch_raw()]
+
+    assert len(pages) == 2  # one page per channel, not one page for the whole workspace
+    assert pages[0][0]["_channel_id"] == "C1"
+    assert pages[0][0]["_channel_name"] == "general"
+    assert pages[1][0]["_channel_id"] == "C2"
+
+
+async def test_slack_fetch_raw_skips_channels_with_no_history(mocker, slack_config):
+    adapter = SlackAdapter(slack_config)
+
+    async def fake_paginate_pages(*args, **kwargs):
+        yield [{"id": "C1", "name": "general"}, {"id": "C2", "name": "empty"}]
+
+    mocker.patch.object(
+        adapter.client, "paginate_pages", new=MagicMock(side_effect=fake_paginate_pages)
+    )
+    mocker.patch.object(
+        adapter.client,
+        "paginated_get",
+        new=AsyncMock(side_effect=[[{"ts": "1.1", "text": "hi"}], []]),
+    )
+
+    pages = [page async for page in adapter.fetch_raw()]
+
+    assert len(pages) == 1
+    assert pages[0][0]["_channel_id"] == "C1"
 
 
 # --- normalize() ---

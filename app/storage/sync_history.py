@@ -7,11 +7,17 @@ from app.utils.mongo import serialize_mongo
 
 
 class SyncHistoryStore:
+    # Guard createIndexes to once per process, not once per SyncHistoryStore() instantiation
+    # (constructed fresh per Celery task/CLI run) -- see AssetStore for the same pattern.
+    _indexes_created = False
+
     def __init__(self):
         self.client = get_mongo_client()
         self.db = self.client["asset_management"]
         self.collection = self.db.sync_history
-        self._create_indexes()
+        if not SyncHistoryStore._indexes_created:
+            self._create_indexes()
+            SyncHistoryStore._indexes_created = True
 
     def _create_indexes(self):
         self.collection.create_index([("sync_id", ASCENDING)], unique=True)
@@ -36,7 +42,16 @@ class SyncHistoryStore:
                 "estimated_duration": estimated_duration,
                 "result": None,
                 "error": None,
+                "processed_count": 0,
             }
+        )
+
+    def update_progress(self, *, sync_id: str, processed_count: int):
+        """Non-terminal progress update, callable repeatedly while a sync is running -- so a
+        crashed/killed sync leaves behind how far it got, instead of nothing until finish_sync()."""
+        self.collection.update_one(
+            {"sync_id": sync_id},
+            {"$set": {"processed_count": processed_count}},
         )
 
     def finish_sync(

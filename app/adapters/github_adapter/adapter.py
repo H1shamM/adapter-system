@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Dict, List
+from typing import AsyncIterator, Dict, List
 
 import httpx
 from pydantic import Field
@@ -32,10 +32,13 @@ class GitHubAdapter(BaseAdapter):
                 raise AuthenticationError("GitHub authentication failed") from err
             raise
 
-    async def fetch_raw(self) -> List[Dict]:
-        return await self.client.paginated_get(
+    async def fetch_raw(self) -> AsyncIterator[List[Dict]]:
+        """Yields one chunk per issues page instead of collecting all pages first -- lets repos
+        with large issue trackers be stored incrementally instead of all at once."""
+        async for page in self.client.paginate_pages(
             f"/repos/{self.config.repo}/issues", max_pages=5, extract_data=lambda r: r
-        )
+        ):
+            yield page
 
     def normalize(self, raw_data: List[Dict]) -> list[NormalizedAsset]:
         return [

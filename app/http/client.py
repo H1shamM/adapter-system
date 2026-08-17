@@ -1,7 +1,7 @@
 import asyncio
 import os
 import time
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, AsyncIterator, Callable, Coroutine, Dict, List, Optional
 from urllib.parse import parse_qs, urlparse
 
 import httpx
@@ -148,7 +148,7 @@ class AssetHttpClient:
     async def post(self, path: str, **kwargs):
         return await self.request("POST", path, **kwargs)
 
-    async def paginated_get(
+    async def paginate_pages(
         self,
         path: str,
         params: Optional[Dict] = None,
@@ -159,18 +159,21 @@ class AssetHttpClient:
         get_next_page: Optional[Callable[[httpx.Response], Optional[Dict]]] = None,
         cursor_response_path: str = "response_metadata.next_cursor",
         cursor_param_name: str = "cursor",
-    ) -> List[Dict]:
+    ) -> AsyncIterator[List[Dict]]:
         """
-        Fetch paginated resources automatically. cursor_response_path/cursor_param_name only
-        apply to pagination="cursor_body" -- the cursor's location in the response body and the
-        request param it's echoed back as both vary per vendor (Slack: response_metadata.
+        Same pagination mechanics as paginated_get, but yields each page as it's fetched instead
+        of accumulating every page into one list -- lets adapters whose result set can be
+        unbounded (e.g. an enterprise fleet with millions of records) process and store page by
+        page instead of holding the whole thing in memory. cursor_response_path/cursor_param_name
+        only apply to pagination="cursor_body" -- the cursor's location in the response body and
+        the request param it's echoed back as both vary per vendor (Slack: response_metadata.
         next_cursor -> "cursor"; CrowdStrike: meta.pagination.offset -> "offset"), even though the
         underlying shape (cursor lives in the body, not a header or a client-computed number) is
         the same across both.
         """
 
-        results = []
         current_page = 1
+        total_fetched = 0
         next_params = params.copy() if params else {}
         url: Optional[str] = None
 
@@ -186,7 +189,8 @@ class AssetHttpClient:
 
             # Extract data using provided function
             page_data = extract_data(response.json())
-            results.extend(page_data)
+            total_fetched += len(page_data)
+            yield page_data
 
             # Get next page parameters
             next_page_params = self._get_next_page_params(
@@ -222,11 +226,54 @@ class AssetHttpClient:
                 current_page += 1
                 next_params["page"] = current_page
             elif pagination == "offset":
-                next_params["offset"] = len(results)
+                next_params["offset"] = total_fetched
 
             url = None  # Reset URL for param-based pagination
 
+    async def paginated_get(
+        self,
+        path: str,
+        params: Optional[Dict] = None,
+        pagination: str = "link_header",  # 'link_header' | 'page_number' | 'offset' | 'cursor_body'
+        page_size: int = 100,
+        max_pages: int = 100,
+        extract_data: Callable[[Dict], List] = lambda r: r["items"],
+        get_next_page: Optional[Callable[[httpx.Response], Optional[Dict]]] = None,
+        cursor_response_path: str = "response_metadata.next_cursor",
+        cursor_param_name: str = "cursor",
+    ) -> List[Dict]:
+        """
+        Fetch paginated resources automatically, fully materialized into one list. See
+        paginate_pages() for the page-by-page equivalent, used by adapters whose result set can
+        be unbounded.
+        """
+        results: List[Dict] = []
+        async for page in self.paginate_pages(
+            path,
+            params=params,
+            pagination=pagination,
+            page_size=page_size,
+            max_pages=max_pages,
+            extract_data=extract_data,
+            get_next_page=get_next_page,
+            cursor_response_path=cursor_response_path,
+            cursor_param_name=cursor_param_name,
+        ):
+            results.extend(page)
         return results
+
+    async def gather_bounded(self, coros: List[Coroutine], limit: int = 10) -> List[Any]:
+        """Run a batch of coroutines with bounded concurrency -- for per-item enrichment loops
+        (e.g. CrowdStrike's per-user detail+roles calls) that would otherwise run fully
+        sequentially, one round trip at a time. `limit` should respect the vendor's documented
+        per-endpoint rate limits."""
+        semaphore = asyncio.Semaphore(limit)
+
+        async def _run(coro):
+            async with semaphore:
+                return await coro
+
+        return await asyncio.gather(*(_run(c) for c in coros))
 
     def _get_next_page_params(
         self,

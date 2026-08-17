@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Dict, List
+from typing import AsyncIterator, Dict, List
 
 from app.adapters.base import BaseAdapter
 from app.adapters.errors import AuthenticationError, FetchError
@@ -17,18 +17,18 @@ class RandomUserAdapter(BaseAdapter):
         except Exception as e:
             raise AuthenticationError("RandomUser connect failed") from e
 
-    async def fetch_raw(self) -> List[Dict]:
-
+    async def fetch_raw(self) -> AsyncIterator[List[Dict]]:
+        """Yields one chunk per results page instead of collecting all pages first."""
         try:
-            users = await self.client.paginated_get(
+            async for page in self.client.paginate_pages(
                 path="",
                 params={"results": 50, "seed": "adapter-system"},
                 pagination="page_number",
                 page_size=50,
                 max_pages=5,
                 extract_data=lambda data: data["results"],
-            )
-            return users
+            ):
+                yield page
         except Exception as e:
             raise FetchError("RandomUser fetch failed") from e
 

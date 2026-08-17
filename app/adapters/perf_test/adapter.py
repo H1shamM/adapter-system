@@ -1,7 +1,7 @@
 import asyncio
 import random
 from datetime import datetime
-from typing import Dict, List
+from typing import AsyncIterator, Dict, List
 
 from pydantic import Field
 
@@ -44,7 +44,7 @@ class PerfTestAdapter(BaseAdapter):
 
         return True
 
-    async def fetch_raw(self) -> List[Dict]:
+    async def fetch_raw(self) -> AsyncIterator[List[Dict]]:
         logger.info(
             "perf_test_sync_start",
             test_id=self.config.test_id,
@@ -61,7 +61,7 @@ class PerfTestAdapter(BaseAdapter):
                 "perf_test_progress", test_id=self.config.test_id, progress=f"{progress:.0f}%"
             )
 
-        return [
+        yield [
             {
                 "id": f"{self.config.test_id}_asset_{i}",
                 "name": f"Test asset {i}",

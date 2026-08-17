@@ -24,6 +24,10 @@ def mock_mongo(mocker):
 def store(mock_mongo):
     from app.storage.sync_history import SyncHistoryStore
 
+    # _indexes_created is a process-level guard (real createIndexes should only run once per
+    # process, not once per SyncHistoryStore() instantiation) -- reset it so each test
+    # deterministically observes index creation regardless of pytest session ordering.
+    SyncHistoryStore._indexes_created = False
     return SyncHistoryStore()
 
 
@@ -44,6 +48,7 @@ def test_start_sync_inserts_full_doc(store, mock_mongo):
     assert doc["duration_ms"] is None
     assert doc["result"] is None
     assert doc["error"] is None
+    assert doc["processed_count"] == 0
     assert isinstance(doc["started_at"], datetime)
 
 
@@ -88,6 +93,14 @@ def test_finish_sync_handles_doc_without_started_at(store, mock_mongo):
     store.finish_sync(sync_id="s1", status="FAILED")
     set_payload = mock_mongo["collection"].update_one.call_args.args[1]["$set"]
     assert set_payload["duration_ms"] is None
+
+
+def test_update_progress_sets_processed_count(store, mock_mongo):
+    store.update_progress(sync_id="s1", processed_count=250)
+
+    mock_mongo["collection"].update_one.assert_called_once_with(
+        {"sync_id": "s1"}, {"$set": {"processed_count": 250}}
+    )
 
 
 def test_list_returns_all_when_no_adapter_filter(store, mock_mongo):

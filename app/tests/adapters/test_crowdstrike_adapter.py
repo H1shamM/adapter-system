@@ -1,5 +1,5 @@
 from datetime import datetime
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
@@ -55,17 +55,22 @@ async def test_crowdstrike_connect_auth_failure(mocker, crowdstrike_config):
 
 # --- fetch_raw() ---
 async def test_crowdstrike_fetch_raw_devices_and_users_with_roles(mocker, crowdstrike_config):
+    """Devices and user-UUIDs each come back as their own page (real fetch_raw() yields one page
+    per paginate_pages call, not one combined list) -- proves per-page chunking. Per-uuid detail
+    + roles enrichment runs via gather_bounded, no per-user N+1 beyond the 2 calls each uuid
+    actually needs."""
     adapter = CrowdStrikeAdapter(crowdstrike_config)
 
+    async def fake_paginate_pages(*args, path, **kwargs):
+        if path == "/devices/combined/devices/v1":
+            yield [{"device_id": "d1", "hostname": "host-1", "last_seen": "2026-08-05T00:00:00Z"}]
+        elif path == "/user-management/queries/users/v1":
+            yield ["u1", "u2"]  # user UUIDs
+        else:
+            raise AssertionError(f"unexpected path {path}")
+
     mocker.patch.object(
-        adapter.client,
-        "paginated_get",
-        new=AsyncMock(
-            side_effect=[
-                [{"device_id": "d1", "hostname": "host-1", "last_seen": "2026-08-05T00:00:00Z"}],
-                ["u1", "u2"],  # user UUIDs
-            ]
-        ),
+        adapter.client, "paginate_pages", new=MagicMock(side_effect=fake_paginate_pages)
     )
 
     def fake_request(method, path, params=None, **kwargs):
@@ -86,18 +91,21 @@ async def test_crowdstrike_fetch_raw_devices_and_users_with_roles(mocker, crowds
 
     mocker.patch.object(adapter.client, "request", new=AsyncMock(side_effect=fake_request))
 
-    raw = await adapter.fetch_raw()
+    pages = [page async for page in adapter.fetch_raw()]
 
-    assert adapter.client.paginated_get.call_count == 2  # devices call + user-UUIDs call
+    assert adapter.client.paginate_pages.call_count == 2  # devices page + user-UUIDs page
     assert (
         adapter.client.request.call_count == 4
     )  # 2 users x (detail + roles), no per-user N+1 beyond that
 
-    devices = [r for r in raw if r["_entity_type"] == "device"]
-    users = [r for r in raw if r["_entity_type"] == "user"]
-    assert len(devices) == 1
-    assert len(users) == 2
-    assert users[0]["_roles"] == ["Role-u1"]
+    assert len(pages) == 2
+    devices_page, users_page = pages
+    assert len(devices_page) == 1
+    assert devices_page[0]["_entity_type"] == "device"
+    assert len(users_page) == 2
+    assert all(u["_entity_type"] == "user" for u in users_page)
+    roles_by_uuid = {u["uuid"]: u["_roles"] for u in users_page}
+    assert roles_by_uuid == {"u1": ["Role-u1"], "u2": ["Role-u2"]}
 
 
 # --- normalize() ---

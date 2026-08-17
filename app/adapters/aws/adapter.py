@@ -1,6 +1,6 @@
 import asyncio
 from datetime import datetime
-from typing import Dict, List
+from typing import AsyncIterator, Dict, List
 
 import boto3
 
@@ -35,12 +35,19 @@ class AWSAdapter(BaseAdapter):
         except Exception as exc:
             raise AuthenticationError(f"AWS STS get_caller_identity failed: {exc}") from exc
 
-    async def fetch_raw(self) -> List[Dict]:
+    async def fetch_raw(self) -> AsyncIterator[List[Dict]]:
+        """boto3's EC2 resource collection already paginates internally (~1000 instances/page) --
+        bridge it one page at a time via asyncio.to_thread(next, ...) instead of forcing the whole
+        collection into one list first, so a huge fleet doesn't have to be fully materialized
+        before storage sees anything."""
         try:
             ec2 = self.session.resource("ec2")
-            return await asyncio.to_thread(
-                lambda: [instance.meta.data for instance in ec2.instances.all()]
-            )
+            pages = ec2.instances.pages()  # sync generator -- no I/O until the first next()
+            while True:
+                page = await asyncio.to_thread(next, pages, None)
+                if page is None:
+                    break
+                yield [instance.meta.data for instance in page]
         except Exception as exc:
             raise FetchError(f"AWS EC2 fetch failed: {exc}") from exc
 

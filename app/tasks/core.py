@@ -65,7 +65,10 @@ def sync_adapter_task(self, adapter_id: str, adapter_type: str, config: dict, sy
             worker=self.request.hostname,
         )
 
-        result = asyncio.run(run_adapter_sync(adapter_type, config))
+        async def on_progress(processed_count: int) -> None:
+            history.update_progress(sync_id=sync_id, processed_count=processed_count)
+
+        result = asyncio.run(run_adapter_sync(adapter_type, config, on_progress=on_progress))
 
         history.finish_sync(
             sync_id=sync_id,

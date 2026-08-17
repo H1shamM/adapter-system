@@ -228,11 +228,11 @@ def test_connect_is_async(adapter_type):
 
 
 @pytest.mark.parametrize("adapter_type", ALL_ADAPTERS)
-def test_fetch_raw_is_async(adapter_type):
+def test_fetch_raw_is_async_generator(adapter_type):
     cls = ADAPTER_REGISTRY[adapter_type][0]
-    assert inspect.iscoroutinefunction(
+    assert inspect.isasyncgenfunction(
         cls.fetch_raw
-    ), f"{cls.__name__}.fetch_raw() must be async (BaseAdapter.execute() awaits it)"
+    ), f"{cls.__name__}.fetch_raw() must be an async generator (BaseAdapter.stream() drains it)"
 
 
 @pytest.mark.parametrize("adapter_type", ALL_ADAPTERS)
@@ -241,6 +241,14 @@ def test_normalize_is_sync(adapter_type):
     assert not inspect.iscoroutinefunction(
         cls.normalize
     ), f"{cls.__name__}.normalize() must be sync (BaseAdapter.execute() does not await it)"
+
+
+@pytest.mark.parametrize("adapter_type", ALL_ADAPTERS)
+def test_stream_is_async_generator(adapter_type):
+    cls = ADAPTER_REGISTRY[adapter_type][0]
+    assert inspect.isasyncgenfunction(
+        cls.stream
+    ), f"{cls.__name__}.stream() must be an async generator (BaseAdapter.execute() drains it)"
 
 
 # ---------------------------------------------------------------------------
@@ -290,7 +298,7 @@ def test_normalize_does_not_mutate_input(adapter_type):
 
 
 # ---------------------------------------------------------------------------
-# End-to-end contract: execute() with mocked connect/fetch_raw
+# End-to-end contract: execute() with mocked connect/stream
 # ---------------------------------------------------------------------------
 
 
@@ -301,11 +309,15 @@ async def test_execute_round_trip(adapter_type, mocker):
     async def fake_connect():
         return None
 
-    async def fake_fetch():
-        return SAMPLE_RAW_DATA[adapter_type]
+    async def fake_stream():
+        yield adapter.normalize(SAMPLE_RAW_DATA[adapter_type])
 
     mocker.patch.object(adapter, "connect", side_effect=fake_connect)
-    mocker.patch.object(adapter, "fetch_raw", side_effect=fake_fetch)
+    # stream() is patched (not fetch_raw()) because execute() drains stream() -- adapters with a
+    # real per-page override (GitHub, AWS, Auth0, Slack, random_user, CrowdStrike) no longer call
+    # fetch_raw() at all, so patching fetch_raw wouldn't exercise execute() for them. Patching
+    # stream() directly works uniformly for every adapter regardless of which one it uses.
+    mocker.patch.object(adapter, "stream", side_effect=fake_stream)
 
     assets = await adapter.execute()
 

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Dict, List
+from typing import AsyncIterator, Dict, List
 
 from app.adapters.base import BaseAdapter
 from app.adapters.errors import FetchError
@@ -13,11 +13,11 @@ class JSONPlaceholderAdapter(BaseAdapter):
     async def connect(self):
         await self.client.get("/users", params={"_limit": 1})
 
-    async def fetch_raw(self) -> List[Dict]:
+    async def fetch_raw(self) -> AsyncIterator[List[Dict]]:
         try:
             response = await self.client.get("/users")
             users = response.json()
-            return users
+            yield users
         except Exception as e:
             raise FetchError("JSONPlaceholderAdapter fetch failed") from e
 

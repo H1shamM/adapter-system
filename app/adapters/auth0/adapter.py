@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Dict, List
+from typing import AsyncIterator, Dict, List
 
 import httpx
 
@@ -24,13 +24,15 @@ class Auth0Adapter(BaseAdapter):
                 raise AuthenticationError("Auth0 authentication failed") from err
             raise
 
-    async def fetch_raw(self) -> List[Dict]:
+    async def fetch_raw(self) -> AsyncIterator[List[Dict]]:
         """Batch-fetch roles once and invert into a {user_id: [role_names]} map, instead of
         calling /api/v2/users/{id}/roles per user -- avoids N+1 at the cost of two extra calls
-        total (roles + each role's users), regardless of user count."""
-        users = await self.client.paginated_get(
-            path="/api/v2/users", pagination="page_number", extract_data=lambda r: r
-        )
+        total (roles + each role's users), regardless of user count. The role->user_id lookup
+        must be fully built before ANY user can be labeled correctly (a user's role list isn't
+        known until every role's user-list has been walked), so that prefetch stays fully
+        materialized -- it's small (a tenant has dozens of roles, not millions). The USERS side
+        is the actual unbounded axis (a huge tenant can have millions), so that's what's yielded
+        page by page instead of collected into one list."""
         roles = await self.client.paginated_get(
             path="/api/v2/roles", pagination="page_number", extract_data=lambda r: r
         )
@@ -45,10 +47,12 @@ class Auth0Adapter(BaseAdapter):
             for user in role_users:
                 user_roles.setdefault(user["user_id"], []).append(role["name"])
 
-        for user in users:
-            user["_roles"] = user_roles.get(user["user_id"], [])
-
-        return users
+        async for page in self.client.paginate_pages(
+            path="/api/v2/users", pagination="page_number", extract_data=lambda r: r
+        ):
+            for user in page:
+                user["_roles"] = user_roles.get(user["user_id"], [])
+            yield page
 
     def normalize(self, raw_data: List[Dict]) -> list[NormalizedAsset]:
         """name/last_seen fall back to email/created_at since not every Auth0 user object
