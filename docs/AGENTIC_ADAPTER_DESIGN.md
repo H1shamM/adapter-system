@@ -103,24 +103,31 @@ reassuring half.
 Generated (or fixed) adapter lands as a normal GitHub PR (`docs/GITHUB_WORKFLOW.md`), never
 auto-merged. A person reviews the diff exactly like a human-authored adapter PR.
 
-## Trigger model (resolved 2026-08-05) — how DIAGNOSE actually gets invoked
+## Trigger model (resolved 2026-08-05; Path 1 detection built 2026-08-17) — how DIAGNOSE actually gets invoked
 
 Two real paths, not one:
 
-1. **Automated, health-metric-driven.** The system already tracks per-adapter Prometheus metrics
-   (`SYNC_SUCCESS`, `SYNC_FAILURES`, `SYNC_ERRORS`, `SYNC_DURATION`, `ASSET_COUNT` — see
-   `app/monitoring/metrics.py`), and Sprint 3.5 in `docs/PROGRESS.md` already plans alert rules for
-   failure rate. When failure/error rate crosses a threshold for a given adapter, that's the automated
-   trigger into DIAGNOSE — this is the majority case at scale (a human can't watch 100 adapters).
+1. **Automated, health-metric-driven.** Built via a Celery beat watcher, not Prometheus/Alertmanager
+   (that stack -- Sprint 3.1/3.5 -- doesn't exist in this repo at all; building it first would have
+   been unrelated scope creep). `check_repeatedly_failing_adapters` (`app/tasks/scheduler.py`, every
+   15 min) polls `sync_history` via `SyncHistoryStore.last_n_statuses()` for each enabled adapter
+   instance; when the last `FAILURE_STREAK_THRESHOLD` (3) finished syncs were all `FAILED`, it opens
+   a labeled (`adapter-drift`) GitHub issue via `GitHubIssueClient`
+   (`app/integrations/github.py`) with the failing sync_ids/timestamps/errors attached, deduped
+   against any already-open issue for that adapter. This is the majority-case detection mechanism at
+   scale (a human can't watch 100 adapters) -- **but detection and invocation are two different
+   things, see below.**
 2. **Human-reported.** A customer reports an issue with fetched assets (data looks wrong, incomplete,
    or stale) even though the sync technically "succeeded" — exactly the Story 2 failure mode, where
    health metrics alone don't catch it because nothing errored, the data was just silently wrong. In
    this case a human explicitly triggers DIAGNOSE with the report as the starting evidence.
 
-Path 1 requires something that actually watches metrics/alerts and invokes DIAGNOSE without a human
-typing a command — a Celery beat job polling `sync_history` for repeated failures, or a Prometheus
-Alertmanager webhook, are the two obvious candidates for the watcher itself. See "Execution model"
-below for how that watcher actually invokes DIAGNOSE once it fires.
+**What's still not automated**: the opened issue is not yet wired to actually invoke
+`diagnose-adapter-drift`. Closing that requires registering a `RemoteTrigger` webhook routine
+subscribed to that issue label -- a real, deliberately deferred step (see Execution model below and
+the backlog in `docs/PROGRESS.md`). Until then, path 1 automates *detection and evidence-gathering*;
+a human still reads the issue and runs the skill (or triggers it manually) -- one real step closer to
+the full loop, not the full loop itself.
 
 ## Execution model: Skill vs. Agent (resolved 2026-08-05)
 
@@ -150,8 +157,11 @@ to Agent-invoked-by-watcher changes *who dials the phone*, never *who's allowed 
 - Not an LLM call inside `fetch_raw()`/`normalize()` at sync time. Ever.
 - Not auto-merge, ever, for either a new adapter or a fix to an existing one.
 - Not a replacement for the contract test suite (4.4) -- it's a consumer of it.
-- Not (yet) a fully autonomous background watcher -- the automated trigger path above is designed but
-  not implemented; today both skills are invoked by a human asking.
+- Not (yet) a fully autonomous background watcher -- detection (the drift watcher, above) is real and
+  running, but it stops at opening a GitHub issue; nothing yet fires `diagnose-adapter-drift`
+  automatically off that issue (needs the deferred `RemoteTrigger` registration). Today, both skills
+  are still invoked by a human asking, though for path 1 that human now starts from a pre-gathered
+  issue instead of digging through `sync_history` themselves.
 
 ## Decisions (resolved 2026-08-05)
 
