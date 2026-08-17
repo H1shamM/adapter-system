@@ -121,6 +121,19 @@ class LoggingSettings(BaseSettings):
     model_config = SettingsConfigDict(case_sensitive=False, extra="ignore")
 
 
+class GitHubSettings(BaseSettings):
+    """GitHub settings -- used by the drift watcher to open an issue when an adapter has been
+    failing repeatedly (see app/integrations/github.py, app/tasks/scheduler.py)."""
+
+    token: SecretStr = Field(
+        default=SecretStr(""), description="GitHub token, needs issues:write on `repo`"
+    )
+
+    repo: str = Field(default="", description="owner/repo to open drift issues against")
+
+    model_config = SettingsConfigDict(env_prefix="GITHUB_", case_sensitive=False, extra="ignore")
+
+
 class Settings(BaseSettings):
     app_name: str = Field(default="AdapterSystem")
     app_version: str = Field(default="1.0.0")
@@ -141,6 +154,7 @@ class Settings(BaseSettings):
     celery: CelerySettings = Field(default_factory=CelerySettings)
     redis: RedisSettings = Field(default_factory=RedisSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
+    github: GitHubSettings = Field(default_factory=GitHubSettings)
 
     pythonunbuffered: bool = False
 

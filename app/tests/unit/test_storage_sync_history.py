@@ -103,6 +103,23 @@ def test_update_progress_sets_processed_count(store, mock_mongo):
     )
 
 
+def test_last_n_statuses_returns_newest_first_finished_only(store, mock_mongo):
+    cursor = MagicMock()
+    cursor.sort.return_value.limit.return_value = iter(
+        [{"status": "FAILED"}, {"status": "FAILED"}, {"status": "SUCCESS"}]
+    )
+    mock_mongo["collection"].find.return_value = cursor
+
+    result = store.last_n_statuses(adapter="gh-1", n=3)
+
+    assert result == ["FAILED", "FAILED", "SUCCESS"]
+    mock_mongo["collection"].find.assert_called_once_with(
+        {"adapter": "gh-1", "status": {"$in": ["SUCCESS", "FAILED"]}}
+    )
+    cursor.sort.assert_called_once_with("finished_at", -1)
+    cursor.sort.return_value.limit.assert_called_once_with(3)
+
+
 def test_list_returns_all_when_no_adapter_filter(store, mock_mongo):
     cursor = MagicMock()
     cursor.sort.return_value.limit.return_value = iter([{"sync_id": "s1"}, {"sync_id": "s2"}])

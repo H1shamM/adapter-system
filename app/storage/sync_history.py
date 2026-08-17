@@ -77,6 +77,19 @@ class SyncHistoryStore:
             },
         )
 
+    def last_n_statuses(self, *, adapter: str, n: int) -> list[str]:
+        """Most recent N *finished* sync statuses for one adapter instance, newest first --
+        STARTED (still-running or crashed-without-a-terminal-status) docs are excluded, since
+        those aren't a real success/failure signal yet. Uses the existing
+        (adapter, finished_at DESC) compound index. Used by the drift watcher
+        (app/tasks/scheduler.py) to detect a repeated-failure streak."""
+        docs = (
+            self.collection.find({"adapter": adapter, "status": {"$in": ["SUCCESS", "FAILED"]}})
+            .sort("finished_at", -1)
+            .limit(n)
+        )
+        return [doc["status"] for doc in docs]
+
     def list(self, *, adapter: str | None = None, limit: int = 100):
         query = {}
         if adapter:
