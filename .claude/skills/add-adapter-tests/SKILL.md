@@ -1,17 +1,19 @@
 ---
 name: add-adapter-tests
-description: Generates comprehensive unit and integration tests for an existing adapter in the adapter-system. Creates test files following the project's pytest patterns with mocked HTTP calls, MongoDB fixtures, and end-to-end sync tests. Use after creating a new adapter or when test coverage is missing.
+description: Generates unit and contract-suite test coverage for an existing adapter in the adapter-system. Creates test files following the project's real pytest patterns (mocking adapter.client, not raw httpx) plus the respx mock-endpoint tier. Use after creating a new adapter or when test coverage is missing.
 argument-hint: <adapter-name>
 allowed-tools: Read Write Edit Glob Grep Bash(ls *) Bash(cat *) Bash(pytest *)
 ---
 
 # Add Adapter Tests
 
-Generates comprehensive test suite for an adapter following the project's testing patterns.
+Generates test coverage for an adapter following the project's real testing patterns -- read the
+actual test files in step 2 before writing anything; this doc summarizes them but the files are
+the source of truth.
 
 ## Arguments
 
-- `$0` - Adapter name (e.g., "stripe", "github") - must already exist in `app/adapters/`
+- `$0` - Adapter name (e.g., "stripe", "slack") - must already exist in `app/adapters/`
 
 ## Steps to Execute
 
@@ -23,301 +25,187 @@ cat app/adapters/$0/adapter.py
 cat app/adapters/$0/config.py
 ```
 
-If the adapter doesn't exist, tell user to create it first with `/add-adapter $0`.
+If the adapter doesn't exist, tell the user to create it first with `/add-adapter $0` or
+`build-adapter-from-docs`.
 
 ### 2. Read Existing Test Patterns
 
-Read existing tests to follow the same patterns:
+Tests for adapters live flat under `app/tests/adapters/` -- there is no `unit/adapters/` or
+`integration/adapters/` split for adapter-level tests.
 
 ```bash
-# Find existing adapter tests
-ls app/tests/unit/adapters/
-ls app/tests/integration/adapters/
+ls app/tests/adapters/
 
-# Read example unit test
-cat app/tests/unit/adapters/test_github_adapter.py
+# Read a clean, current example (connect/fetch_raw/normalize, no pagination)
+cat app/tests/adapters/test_slack_adapter.py
 
-# Read example integration test
-cat app/tests/integration/adapters/test_github_integration.py
+# Read one with OAuth2 + pagination
+cat app/tests/adapters/test_auth0_adapter.py
 
-# Check pytest configuration
+# Read the respx mock-endpoint tier -- exercises the REAL AssetHttpClient code (retry, URL
+# construction, pagination) against realistic response bodies, not the adapter's own mocked
+# methods. Standard practice when there's no live vendor account to test against for real
+# (see docs/AGENTIC_ADAPTER_DESIGN.md).
+cat app/tests/adapters/test_crowdstrike_adapter_mock_endpoints.py
+
+# The generic cross-adapter contract suite -- every adapter needs entries here too
+cat app/tests/contract/test_adapter_contract.py
+
+# Check pytest configuration -- asyncio_mode = auto means test functions are just
+# `async def test_...`, no @pytest.mark.asyncio decorator needed anywhere
 cat pytest.ini
-cat app/tests/conftest.py
 ```
 
 ### 3. Generate Unit Tests
 
-Create `app/tests/unit/adapters/test_$0_adapter.py`:
+Create `app/tests/adapters/test_$0_adapter.py`. Mock `adapter.client` (BaseAdapter's shared
+`AssetHttpClient`) -- never patch raw `httpx.AsyncClient`, and never assume `adapter.client` is
+`None` before `connect()` (it's constructed in `BaseAdapter.__init__`, always present).
+`fetch_raw()` is an async generator -- consume it with `[page async for page in adapter.fetch_raw()]`,
+never `await adapter.fetch_raw()` directly (that raises, it's not a coroutine).
 
 ```python
 """Unit tests for $0 adapter."""
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
+
 import httpx
+import pytest
 
 from app.adapters.$0.adapter import $0Adapter
 from app.adapters.$0.config import $0Config
-from app.models.normalized_asset import NormalizedAsset
+from app.adapters.errors import AuthenticationError
+from app.models.assets import NormalizedAsset
 
 
 @pytest.fixture
 def $0_config():
-    """Provide $0 adapter config for testing."""
     return $0Config(
-        adapter_type="$0",
-        instance_id="test_$0",
-        api_key="test_api_key",
-        base_url="https://api.$0.com"
+        name="$0",
+        base_url="https://api.$0.com",
+        auth_type="bearer",  # match whatever auth_type $0Config actually uses
+        auth_config={"token": "test-token"},
     )
 
 
-@pytest.fixture
-def $0_adapter($0_config):
-    """Provide $0 adapter instance."""
-    return $0Adapter($0_config)
+# --- connect() ---
+async def test_$0_connect_success(mocker, $0_config):
+    adapter = $0Adapter($0_config)
+    mocker.patch.object(adapter.client, "get", new=AsyncMock(return_value=None))
+    await adapter.connect()
 
 
-@pytest.fixture
-def mock_$0_response():
-    """Sample $0 API response for testing."""
-    return {
-        "items": [
-            {"id": "1", "name": "Test Item 1", "data": "value1"},
-            {"id": "2", "name": "Test Item 2", "data": "value2"},
-        ]
-    }
-
-
-class Test$0AdapterConnect:
-    """Tests for $0Adapter.connect() method."""
-    
-    @pytest.mark.asyncio
-    async def test_connect_success($0_adapter):
-        """Test successful connection establishment."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.raise_for_status = MagicMock()
-        
-        with patch("httpx.AsyncClient.get", return_value=mock_response) as mock_get:
-            await $0_adapter.connect()
-            
-            assert $0_adapter.client is not None
-            mock_get.assert_called_once()
-    
-    @pytest.mark.asyncio
-    async def test_connect_invalid_credentials($0_adapter):
-        """Test connection failure with invalid credentials."""
-        with patch("httpx.AsyncClient.get") as mock_get:
-            mock_get.side_effect = httpx.HTTPStatusError(
-                "401 Unauthorized",
-                request=MagicMock(),
-                response=MagicMock(status_code=401)
+async def test_$0_connect_auth_failure(mocker, $0_config):
+    adapter = $0Adapter($0_config)
+    fake_response = httpx.Response(401, request=httpx.Request("GET", "https://x"))
+    mocker.patch.object(
+        adapter.client,
+        "get",
+        new=AsyncMock(
+            side_effect=httpx.HTTPStatusError(
+                "401", request=fake_response.request, response=fake_response
             )
-            
-            with pytest.raises(httpx.HTTPStatusError):
-                await $0_adapter.connect()
-    
-    @pytest.mark.asyncio
-    async def test_connect_network_error($0_adapter):
-        """Test connection failure due to network issues."""
-        with patch("httpx.AsyncClient.get", side_effect=httpx.ConnectError("Network error")):
-            with pytest.raises(httpx.ConnectError):
-                await $0_adapter.connect()
+        ),
+    )
+    with pytest.raises(AuthenticationError):
+        await adapter.connect()
 
 
-class Test$0AdapterFetchRaw:
-    """Tests for $0Adapter.fetch_raw() method."""
-    
-    @pytest.mark.asyncio
-    async def test_fetch_raw_success($0_adapter, mock_$0_response):
-        """Test successful data fetching."""
-        mock_response = MagicMock()
-        mock_response.json.return_value = mock_$0_response
-        mock_response.raise_for_status = MagicMock()
-        
-        await $0_adapter.connect()
-        with patch.object($0_adapter.client, "get", return_value=mock_response):
-            data = await $0_adapter.fetch_raw()
-            
-            assert len(data) == 2
-            assert data[0]["id"] == "1"
-            assert data[1]["name"] == "Test Item 2"
-    
-    @pytest.mark.asyncio
-    async def test_fetch_raw_not_connected($0_adapter):
-        """Test that fetch_raw raises if not connected."""
-        with pytest.raises(RuntimeError, match="not connected"):
-            await $0_adapter.fetch_raw()
-    
-    @pytest.mark.asyncio
-    async def test_fetch_raw_empty_response($0_adapter):
-        """Test handling of empty API response."""
-        mock_response = MagicMock()
-        mock_response.json.return_value = {"items": []}
-        mock_response.raise_for_status = MagicMock()
-        
-        await $0_adapter.connect()
-        with patch.object($0_adapter.client, "get", return_value=mock_response):
-            data = await $0_adapter.fetch_raw()
-            
-            assert data == []
+# --- fetch_raw() ---
+async def test_$0_fetch_raw_yields_chunk(mocker, $0_config):
+    adapter = $0Adapter($0_config)
+
+    def fake_response():
+        class FakeResponse:
+            def json(self):
+                return {"items": [{"id": "1", "name": "Test Item 1"}]}
+
+        return FakeResponse()
+
+    mocker.patch.object(adapter.client, "get", new=AsyncMock(return_value=fake_response()))
+
+    pages = [page async for page in adapter.fetch_raw()]
+
+    assert len(pages) >= 1
+    assert pages[0][0]["id"] == "1"
 
 
-class Test$0AdapterNormalize:
-    """Tests for $0Adapter.normalize() method."""
-    
-    def test_normalize_success($0_adapter, mock_$0_response):
-        """Test successful data normalization."""
-        raw_data = mock_$0_response["items"]
-        normalized = $0_adapter.normalize(raw_data)
-        
-        assert len(normalized) == 2
-        assert all(isinstance(asset, NormalizedAsset) for asset in normalized)
-        assert normalized[0].external_id == "1"
-        assert normalized[0].source_adapter == "$0"
-    
-    def test_normalize_empty_data($0_adapter):
-        """Test normalization with empty input."""
-        result = $0_adapter.normalize([])
-        assert result == []
-    
-    def test_normalize_preserves_metadata($0_adapter, mock_$0_response):
-        """Test that original data is preserved in metadata."""
-        raw_data = mock_$0_response["items"]
-        normalized = $0_adapter.normalize(raw_data)
-        
-        assert normalized[0].metadata == raw_data[0]
+# --- normalize() ---
+def test_$0_normalize_rich_item($0_config):
+    adapter = $0Adapter($0_config)
+    raw = [{"id": "1", "name": "Test Item 1", "updated_at": "2026-08-04T08:59:03.789Z"}]
+
+    assets = adapter.normalize(raw)
+
+    assert len(assets) == 1
+    assert isinstance(assets[0], NormalizedAsset)
+    assert assets[0].asset_id == "1"
+    assert assets[0].vendor == "$0"
 
 
-class Test$0AdapterClose:
-    """Tests for $0Adapter.close() method."""
-    
-    @pytest.mark.asyncio
-    async def test_close_after_connect($0_adapter):
-        """Test cleanup after connection."""
-        with patch("httpx.AsyncClient.get", return_value=MagicMock()):
-            await $0_adapter.connect()
-            await $0_adapter.close()
-            # Should not raise any errors
-    
-    @pytest.mark.asyncio
-    async def test_close_without_connect($0_adapter):
-        """Test that close is safe without connecting."""
-        await $0_adapter.close()
-        # Should not raise any errors
+def test_$0_normalize_empty_input($0_config):
+    adapter = $0Adapter($0_config)
+    assert adapter.normalize([]) == []
 ```
 
-### 4. Generate Integration Tests
+### 4. Generate the respx mock-endpoint tier (when no live vendor account exists)
 
-Create `app/tests/integration/adapters/test_$0_integration.py`:
+If there's no real test account/token to verify against (the common case), add a second test file
+exercising `AssetHttpClient`'s REAL request/pagination/auth code via `respx` (mocks httpx at the
+transport layer, not `adapter.client`'s methods) -- model it directly on
+`app/tests/adapters/test_crowdstrike_adapter_mock_endpoints.py`. This is the standard
+verification-layer tier per `docs/AGENTIC_ADAPTER_DESIGN.md` -- it catches real bugs (URL
+construction, pagination cursor parsing, auth request shape) that mocking `adapter.client`
+directly cannot, by construction.
 
-```python
-"""Integration tests for $0 adapter (requires real services)."""
-import pytest
-from app.adapters.$0.adapter import $0Adapter
-from app.adapters.$0.config import $0Config
-from app.adapters.factory import build_adapter
-from app.services.sync_engine import run_adapter_sync
+### 5. Add entries to the contract test suite
 
+If `/add-adapter` didn't already do this, add `$0` entries to both `MINIMAL_CONFIGS` and
+`SAMPLE_RAW_DATA` in `app/tests/contract/test_adapter_contract.py` (see step 7b in that skill).
 
-@pytest.mark.integration
-class Test$0AdapterIntegration:
-    """Integration tests requiring MongoDB + real API."""
-    
-    @pytest.fixture
-    def $0_config(self):
-        """Real config for integration testing - uses test API key."""
-        return $0Config(
-            adapter_type="$0",
-            instance_id="integration_test_$0",
-            api_key="TEST_API_KEY_FROM_ENV",  # Set via .env.test
-            base_url="https://api.$0.com"
-        )
-    
-    @pytest.mark.asyncio
-    async def test_factory_builds_$0_adapter(self, $0_config):
-        """Test that factory correctly builds $0 adapter."""
-        adapter = build_adapter("$0", $0_config.dict())
-        assert isinstance(adapter, $0Adapter)
-    
-    @pytest.mark.asyncio
-    async def test_full_sync_flow(self, $0_config, mongodb_client):
-        """Test complete sync: connect → fetch → normalize → store."""
-        adapter = $0Adapter($0_config)
-        
-        # Run full sync
-        result = await run_adapter_sync(
-            adapter_type="$0",
-            instance_id=$0_config.instance_id,
-            config=$0_config.dict()
-        )
-        
-        # Verify sync succeeded
-        assert result["status"] == "success"
-        assert result["assets_synced"] > 0
-        
-        # Verify data in MongoDB
-        assets = await mongodb_client.assets.find(
-            {"source_adapter": "$0"}
-        ).to_list(length=100)
-        assert len(assets) > 0
-    
-    @pytest.mark.asyncio
-    async def test_sync_history_recorded(self, $0_config, mongodb_client):
-        """Test that sync history is recorded in MongoDB."""
-        await run_adapter_sync(
-            adapter_type="$0",
-            instance_id=$0_config.instance_id,
-            config=$0_config.dict()
-        )
-        
-        history = await mongodb_client.sync_history.find_one(
-            {"adapter_type": "$0"},
-            sort=[("started_at", -1)]
-        )
-        assert history is not None
-        assert history["status"] == "success"
-```
-
-### 5. Run Tests to Verify
+### 6. Run Tests to Verify
 
 ```bash
-# Run unit tests for the new adapter
-pytest app/tests/unit/adapters/test_$0_adapter.py -v
-
-# Check coverage
-pytest app/tests/unit/adapters/test_$0_adapter.py --cov=app.adapters.$0
+pytest app/tests/adapters/test_$0_adapter.py -v
+pytest app/tests/contract/test_adapter_contract.py -k $0 -v
 ```
 
-### 6. Report Results
+### 7. Report Results
 
 Show user:
 
 ```
 ✅ Created tests for $0 adapter:
-   - app/tests/unit/adapters/test_$0_adapter.py (X tests)
-   - app/tests/integration/adapters/test_$0_integration.py (Y tests)
+   - app/tests/adapters/test_$0_adapter.py
+   - app/tests/adapters/test_$0_adapter_mock_endpoints.py (if no live account)
+   - $0 entries added to app/tests/contract/test_adapter_contract.py
 
-📊 Test Categories Covered:
-   ✓ connect() - success, auth failure, network error
-   ✓ fetch_raw() - success, not connected, empty response
-   ✓ normalize() - success, empty data, metadata preservation
-   ✓ close() - cleanup after connect, safe without connect
-   ✓ Integration - factory, full sync flow, history recording
+📊 Coverage:
+   ✓ connect() - success, auth failure
+   ✓ fetch_raw() - yields at least one chunk with real fields
+   ✓ normalize() - rich item, empty input
+   ✓ Contract suite - construction, normalize round-trip, execute() round-trip
 
 🚀 NEXT STEPS:
-1. Update test data in mock_$0_response fixture to match real API
-2. Set TEST_API_KEY in .env.test for integration tests
-3. Run: pytest app/tests/unit/adapters/test_$0_adapter.py
-4. Run: pytest app/tests/integration/adapters/test_$0_integration.py -m integration
-5. Verify coverage: pytest --cov=app.adapters.$0 --cov-report=html
+1. Fill in real $0 field names in the fake response fixtures (currently placeholders)
+2. If $0 paginates, add a multi-page test asserting fetch_raw() yields multiple chunks
+   (see test_crowdstrike_adapter_mock_endpoints.py's test_crowdstrike_stream_yields_multiple_chunks
+   for the pattern)
+3. Run: pytest app/tests/adapters/test_$0_adapter.py app/tests/contract/ -k $0 -v
 ```
 
 ## Important Rules
 
-- **Match existing test style** - read other adapter tests first
-- **Use pytest-asyncio** - this codebase uses async tests
-- **Mock external HTTP calls** - never make real API calls in unit tests
-- **Use `@pytest.mark.integration`** - for tests requiring real services
-- **Use existing fixtures** - check conftest.py for shared fixtures
-- **Aim for >80% coverage** - this is the project standard
+- **Match existing test style** - read `test_slack_adapter.py`/`test_auth0_adapter.py` first,
+  don't invent a new structure
+- **No `@pytest.mark.asyncio`** - `pytest.ini` sets `asyncio_mode = auto`, plain `async def test_...`
+  is enough
+- **Mock `adapter.client`'s methods** (`get`/`request`/`paginated_get`/`paginate_pages`) -
+  never patch raw `httpx.AsyncClient`, and never assume `adapter.client` can be `None`
+- **`fetch_raw()` is an async generator** - consume with `[page async for page in adapter.fetch_raw()]`,
+  never `await adapter.fetch_raw()`
+- **Use the real `NormalizedAsset` fields** - `asset_id`, `customer_id`, `name`, `asset_type`,
+  `status`, `last_seen`, `vendor`, `metadata` (`app/models/assets.py`)
+- **Add the respx mock-endpoint tier when there's no live account** - standard practice, not
+  optional, per `docs/AGENTIC_ADAPTER_DESIGN.md`
+- **Always add contract suite entries** - `MINIMAL_CONFIGS` and `SAMPLE_RAW_DATA` in
+  `app/tests/contract/test_adapter_contract.py`

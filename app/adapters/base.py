@@ -40,12 +40,16 @@ class BaseAdapter(ABC):
         pass
 
     @abstractmethod
-    async def fetch_raw(self) -> AsyncIterator[List[Dict]]:
+    def fetch_raw(self) -> AsyncIterator[List[Dict]]:
         """Yield raw vendor data in chunks -- one chunk for adapters with bounded results
         (nothing to gain from chunking a dataset that already fits in memory), one chunk per
         page for adapters whose result set can be unbounded (paginated APIs, enterprise fleets),
-        so storage can happen incrementally instead of after everything is fetched."""
-        pass
+        so storage can happen incrementally instead of after everything is fetched. Declared
+        without `async` (mypy-correct for an async-generator-returning method: calling an async
+        generator function is itself synchronous, it doesn't return a coroutine -- only
+        `__anext__` on the result is awaited) -- concrete overrides are `async def ... : yield`,
+        real async generator functions, which satisfy this signature."""
+        raise NotImplementedError
 
     @abstractmethod
     def normalize(self, raw_data: List[Dict]) -> List[NormalizedAsset]:

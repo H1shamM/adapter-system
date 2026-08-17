@@ -1,3 +1,10 @@
+---
+name: build-adapter-from-docs
+description: Drafts a complete, working adapter (real connect/fetch_raw/normalize logic, not TODO stubs) from a vendor's live API documentation, runs it through the full two-tier verification layer, then hands off for human review — never auto-commits or opens a PR. Use when adding a new integration and you have a docs URL (or pasted spec) to build against; this is the agentic build-time half of docs/AGENTIC_ADAPTER_DESIGN.md.
+argument-hint: <vendor> <docs_url> [resources]
+allowed-tools: Read Write Edit Glob Grep WebFetch Bash(ls *) Bash(cat *) Bash(black *) Bash(isort *) Bash(flake8 *) Bash(pytest *)
+---
+
 # Build Adapter From Docs
 
 Drafts a COMPLETE, WORKING adapter (real `connect`/`fetch_raw`/`normalize` logic, not placeholder
@@ -11,9 +18,11 @@ is expected to produce adapter code that actually works, because a human isn't f
 afterward — verification has to catch what a human review would otherwise catch first.
 
 **Precedents to pattern-match against**: `app/adapters/auth0/` (built by a human, hand-guided,
-2026-08-04) and `app/adapters/slack/` (drafted by an agent with real autonomy, 2026-08-05, following
-this exact process for the first time). Read both before drafting a new one — they show what "real,
-defensible decisions" looks like versus "TODO, fill this in."
+2026-08-04), `app/adapters/slack/` (drafted by an agent with real autonomy, 2026-08-05, following
+this exact process for the first time), and `app/adapters/crowdstrike/` (real per-page pagination +
+bounded-concurrency N+1 enrichment via `gather_bounded`, 2026-08-17). Read all three before drafting
+a new one — they show what "real, defensible decisions" looks like versus "TODO, fill this in," and
+what the current `fetch_raw()` generator contract (see step 4) actually looks like in practice.
 
 ## Arguments
 
@@ -67,12 +76,19 @@ Create `app/adapters/<vendor>/{__init__.py,config.py,adapter.py}`:
   (not auth, which flows through `auth_type`/`auth_config` generically)
 - `connect()` — one cheap real call that proves auth actually works; translate the vendor's actual
   documented failure shape into `AuthenticationError` (check status code AND body, per step 1)
-- `fetch_raw()` — implement the real fetch, including any multi-resource batching decision (does
-  fetching resource B require resource A first? is there a batch endpoint or is per-item N+1
-  unavoidable given the vendor's actual API shape — state which, and why)
-- `normalize()` — map to `NormalizedAsset`, with fallbacks for any field the docs show as optional
-  or vendor-configurable; required fields (`asset_id`, `customer_id`, `name`, `last_seen`) must
-  either have a real fallback or the record should fail loudly (per Story 2 — no silent drops)
+- `fetch_raw()` — MUST be an async generator (`async def fetch_raw(self) -> AsyncIterator[List[Dict]]:
+  ... yield chunk`), not a coroutine returning one materialized list. One chunk is fine for a
+  bounded/single-call resource; a genuinely paginated one should yield per page via
+  `self.client.paginate_pages(...)`, not collect every page first (see CrowdStrike's device fetch).
+  Also implement any multi-resource batching decision (does fetching resource B require resource A
+  first? is there a batch endpoint or is per-item N+1 unavoidable given the vendor's actual API
+  shape — state which, and why; use `self.client.gather_bounded(...)` for N+1 enrichment instead of
+  a fully sequential loop, see CrowdStrike's per-user detail+roles fetch)
+- Do NOT implement `stream()` — it's inherited from `BaseAdapter` and works automatically once
+  `fetch_raw()` is a real generator (it just calls `normalize()` on each chunk yielded)
+- `normalize()` — map ONE CHUNK to `NormalizedAsset`, with fallbacks for any field the docs show as
+  optional or vendor-configurable; required fields (`asset_id`, `customer_id`, `name`, `last_seen`)
+  must either have a real fallback or the record should fail loudly (per Story 2 — no silent drops)
 
 ### 5. Register + sample config
 
