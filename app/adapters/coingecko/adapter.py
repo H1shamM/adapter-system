@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Dict, List
+from typing import AsyncIterator, Dict, List
 
 from app.adapters.base import AdapterConfig, BaseAdapter
 from app.adapters.errors import FetchError
@@ -18,14 +18,14 @@ class CoinGeckoAdapter(BaseAdapter):
     async def connect(self):
         await self.client.get("/ping")
 
-    async def fetch_raw(self) -> List[Dict]:
+    async def fetch_raw(self) -> AsyncIterator[List[Dict]]:
         try:
             response = await self.client.get(
                 f"/api/v3/coins/markets?vs_currency={self.currency}&order=market_cap_desc"
             )
             data = response.json()
 
-            return data
+            yield data
         except Exception as e:
             raise FetchError("CoinGecko fetch failed") from e
 

@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Dict, List
+from typing import AsyncIterator, Dict, List
 
 from app.adapters.base import BaseAdapter
 from app.adapters.errors import AuthenticationError, FetchError
@@ -30,34 +30,34 @@ class SlackAdapter(BaseAdapter):
                 raise AuthenticationError(f"Slack authentication failed: {error}")
             raise FetchError(f"Slack connect check failed: {error}")
 
-    async def fetch_raw(self) -> List[Dict]:
-        """Fetch channels, then each channel's recent message history (one page per channel --
-        a deliberate v1 scope limit, not an oversight: unlike Auth0's roles, Slack has no
-        batch/all-channels history endpoint, so per-channel calls are the API's actual shape,
+    async def fetch_raw(self) -> AsyncIterator[List[Dict]]:
+        """Both axes can be large in a big workspace -- thousands of channels, and per-channel
+        history -- so channels are yielded page by page too, not just per-channel messages,
+        instead of requiring the full channel list up front. Per-channel history is one page per
+        channel -- a deliberate v1 scope limit, not an oversight: unlike Auth0's roles, Slack has
+        no batch/all-channels history endpoint, so per-channel calls are the API's actual shape,
         not an N+1 mistake to avoid. Full backfill would need a different, paginated-per-channel
         strategy tracked separately, not attempted here)."""
-        channels = await self.client.paginated_get(
+        async for channel_page in self.client.paginate_pages(
             path="/conversations.list",
             params={"types": ",".join(self.config.channel_types), "limit": 200},
             pagination="cursor_body",
             extract_data=lambda r: r["channels"],
-        )
-
-        messages: List[Dict] = []
-        for channel in channels:
-            history = await self.client.paginated_get(
-                path="/conversations.history",
-                params={"channel": channel["id"], "limit": self.config.message_history_limit},
-                pagination="cursor_body",
-                max_pages=1,
-                extract_data=lambda r: r["messages"],
-            )
-            for msg in history:
-                msg["_channel_id"] = channel["id"]
-                msg["_channel_name"] = channel.get("name", channel["id"])
-                messages.append(msg)
-
-        return messages
+        ):
+            for channel in channel_page:
+                history = await self.client.paginated_get(
+                    path="/conversations.history",
+                    params={"channel": channel["id"], "limit": self.config.message_history_limit},
+                    pagination="cursor_body",
+                    max_pages=1,
+                    extract_data=lambda r: r["messages"],
+                )
+                if not history:
+                    continue
+                for msg in history:
+                    msg["_channel_id"] = channel["id"]
+                    msg["_channel_name"] = channel.get("name", channel["id"])
+                yield history
 
     def normalize(self, raw_data: List[Dict]) -> list[NormalizedAsset]:
         """Required fields always populated: text can be genuinely empty for some message

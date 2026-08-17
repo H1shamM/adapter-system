@@ -1,6 +1,6 @@
 import random
 from datetime import datetime, timedelta
-from typing import Dict, List
+from typing import AsyncIterator, Dict, List
 
 from app.adapters.base import AdapterConfig, BaseAdapter
 from app.config import settings
@@ -16,8 +16,8 @@ class MockAdapter(BaseAdapter):
     async def connect(self) -> None:
         return None
 
-    async def fetch_raw(self) -> List[Dict]:
-        return [self._generate_mock_asset() for _ in range(self.config.num_assets)]
+    async def fetch_raw(self) -> AsyncIterator[List[Dict]]:
+        yield [self._generate_mock_asset() for _ in range(self.config.num_assets)]
 
     def normalize(self, raw_data: List[Dict]) -> List[NormalizedAsset]:
         return [

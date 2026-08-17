@@ -25,3 +25,7 @@ class CrowdStrikeConfig(AdapterConfig):
     """
 
     device_filter: Optional[str] = None  # optional FQL filter, e.g. "platform_name:'Windows'"
+
+    # Per-user detail+roles enrichment (stream()) runs concurrently within each page, bounded by
+    # this -- respects CrowdStrike's documented per-endpoint rate limits, configurable per tenant.
+    max_concurrent_requests: int = 10

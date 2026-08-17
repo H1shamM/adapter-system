@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import Dict, List, Literal, Optional, Type
+from typing import AsyncIterator, Dict, List, Literal, Optional, Type
 
-import requests
+import httpx
 from pydantic import Field
 
 from app.adapters.errors import AuthenticationError, FetchError
@@ -40,30 +40,46 @@ class BaseAdapter(ABC):
         pass
 
     @abstractmethod
-    async def fetch_raw(self) -> List[Dict]:
-        """Get raw vendor data"""
+    async def fetch_raw(self) -> AsyncIterator[List[Dict]]:
+        """Yield raw vendor data in chunks -- one chunk for adapters with bounded results
+        (nothing to gain from chunking a dataset that already fits in memory), one chunk per
+        page for adapters whose result set can be unbounded (paginated APIs, enterprise fleets),
+        so storage can happen incrementally instead of after everything is fetched."""
         pass
 
     @abstractmethod
     def normalize(self, raw_data: List[Dict]) -> List[NormalizedAsset]:
-        """Convert to unified schema"""
+        """Convert one chunk to the unified schema"""
         pass
 
-    async def execute(self) -> List[NormalizedAsset]:
-        """Full execution flow"""
+    async def stream(self) -> AsyncIterator[List[NormalizedAsset]]:
+        """connect() + fetch_raw()/normalize() per chunk, with error translation -- the one
+        production entrypoint (sync_engine.run_adapter_sync drains this directly, chunk by
+        chunk). Not every adapter's connect() self-translates raw HTTP errors into
+        AuthenticationError/FetchError (some rely entirely on this wrapper), so this has to be
+        the one place both this and execute() go through."""
         try:
             await self.connect()
-            raw_data = await self.fetch_raw()
-            return self.normalize(raw_data)
+            async for chunk in self.fetch_raw():
+                yield self.normalize(chunk)
         except AuthenticationError:
             raise
-        except requests.exceptions.HTTPError as err:
-            if err.response is not None and err.response.status_code in (401, 403):
+        except httpx.HTTPStatusError as err:
+            if err.response.status_code in (401, 403):
                 raise AuthenticationError(f"Authentication failed: {str(err)}") from err
-            status = err.response.status_code if err.response else "UNKNOWN"
-            raise FetchError(f"{self.config.name}: execution failed ({status})") from err
+            raise FetchError(
+                f"{self.config.name}: execution failed ({err.response.status_code})"
+            ) from err
         except Exception as e:
             raise FetchError(f"{self.config.name}: execution failed") from e
+
+    async def execute(self) -> List[NormalizedAsset]:
+        """Drains stream() into one list -- for callers that want the whole batch at once (CLI
+        runs, tests)."""
+        assets: List[NormalizedAsset] = []
+        async for chunk in self.stream():
+            assets.extend(chunk)
+        return assets
 
     async def close(self):
         """Close connection"""

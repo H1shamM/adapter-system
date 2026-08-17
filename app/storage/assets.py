@@ -12,11 +12,18 @@ logger = get_logger(__name__)
 
 
 class AssetStore:
+    # AssetStore() is constructed fresh per sync run (see sync_engine.run_adapter_sync) --
+    # createIndexes is idempotent but still a round trip, so guard it to once per process
+    # instead of once per sync.
+    _indexes_created = False
+
     def __init__(self):
         self.client = get_mongo_client()
         self.db = self.client[settings.database.mongo_db_name]
         self.collection = self.db.assets
-        self._create_indexes()
+        if not AssetStore._indexes_created:
+            self._create_indexes()
+            AssetStore._indexes_created = True
 
     def _create_indexes(self):
         self.db.assets.create_index(
@@ -44,7 +51,10 @@ class AssetStore:
             )
 
         try:
-            result = self.db.assets.bulk_write(operations)
+            # ordered=False -- upserts are independent (unique-indexed by asset_id+customer_id),
+            # so MongoDB can execute out of order / keep going past individual errors, which is
+            # faster at scale with no correctness downside here.
+            result = self.db.assets.bulk_write(operations, ordered=False)
             logger.info(
                 "Assets stored successfully",
                 assets_count=len(operations),

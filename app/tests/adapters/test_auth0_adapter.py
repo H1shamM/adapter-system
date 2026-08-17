@@ -1,5 +1,5 @@
 from datetime import datetime
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
@@ -59,33 +59,42 @@ async def test_auth0_connect_auth_failure(mocker, auth0_config):
 
 
 # --- fetch_raw() ---
-async def test_auth0_fetch_raw_batches_roles_not_per_user(mocker, auth0_config):
-
-    # - mock adapter.client.paginated_get with an AsyncMock whose side_effect returns, in order:
-    #       1. the users list (2 users)
-    #       2. the roles list (2 roles: Admin, Viewer)
-    #       3. role_users for role 1
-    #       4. role_users for role 2
-    #   - assert paginated_get was called exactly 4 times total (proves NO per-user role call --
-    #     this is the actual thing this adapter exists to prove, make the assertion explicit)
-    #   - assert each returned user dict has the correct "_roles" list
+async def test_auth0_fetch_raw_batches_roles_and_streams_users_per_page(mocker, auth0_config):
+    """Roles are batch-fetched once and inverted into a {user_id: [role_names]} lookup, instead
+    of calling /api/v2/users/{id}/roles per user -- avoids N+1 regardless of user count (the
+    actual thing this adapter exists to prove). Users themselves are yielded page by page (not
+    one paginated_get call for the whole tenant) -- that's the unbounded axis for a huge tenant."""
     adapter = Auth0Adapter(auth0_config)
     mocker.patch.object(
         adapter.client,
         "paginated_get",
         new=AsyncMock(
             side_effect=[
-                [{"user_id": "u1"}, {"user_id": "u2"}],  # 1st call: users
-                [{"id": "r1", "name": "Admin"}, {"id": "r2", "name": "Viewer"}],  # 2nd call: roles
-                [{"user_id": "u1"}],  # 3rd call: role r1's users
-                [{"user_id": "u2"}],  # 4th call: role r2's users
+                [{"id": "r1", "name": "Admin"}, {"id": "r2", "name": "Viewer"}],  # roles
+                [{"user_id": "u1"}],  # role r1's users
+                [{"user_id": "u2"}, {"user_id": "u3"}],  # role r2's users
             ]
         ),
     )
-    users = await adapter.fetch_raw()
-    assert adapter.client.paginated_get.call_count == 4
-    for user in users:
-        assert len(user["_roles"]) == 1
+
+    async def fake_paginate_pages(*args, **kwargs):
+        yield [{"user_id": "u1"}, {"user_id": "u2"}]
+        yield [{"user_id": "u3"}]
+
+    mocker.patch.object(
+        adapter.client, "paginate_pages", new=MagicMock(side_effect=fake_paginate_pages)
+    )
+
+    pages = [page async for page in adapter.fetch_raw()]
+
+    assert len(pages) == 2  # one page per user page, not one page for the whole tenant
+    # roles + 2 role-user calls -- no per-user role lookup, proves the N+1 avoidance
+    assert adapter.client.paginated_get.call_count == 3
+
+    all_users = [user for page in pages for user in page]
+    assert len(all_users) == 3
+    roles_by_id = {u["user_id"]: u["_roles"] for u in all_users}
+    assert roles_by_id == {"u1": ["Admin"], "u2": ["Viewer"], "u3": ["Viewer"]}
 
 
 # --- normalize() ---

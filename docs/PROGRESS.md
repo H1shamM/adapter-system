@@ -150,6 +150,9 @@ Things noted but not yet sprinted:
 - Frontend: dark mode, accessibility audit
 - Frontend: drag-and-drop adapter config builder
 - E2E test suite (Playwright) for the dashboard
+- `sync_engine.run_adapter_sync`: extract a unified reporter (metrics + progress + logging) instead of the current mix of hardcoded module-level globals (`metrics`, `logger`) plus a separately-injected `on_progress` callback -- noted during the universal-adapter-streaming review (feature/universal-adapter-streaming) as an inconsistent extension pattern, deferred as a bigger change (touches `sync_engine.py`, `tasks/core.py`'s callback wiring, and test fixtures)
+- `sync_adapter_task` (`app/tasks/core.py`): distinguish fetch-side failures (`AuthenticationError`/`FetchError` from `adapter.stream()`) from store-side failures (Mongo/`AssetStore.store_assets()`) -- currently both land in one blanket `except Exception`, but they likely warrant different retry/alerting treatment; related to the Sprint 2.1 idempotent-syncs backlog item above
+- Rate-limit-aware backpressure: `AssetHttpClient` already tracks `X-RateLimit-Remaining` per adapter (`RATE_LIMIT_GAUGE`) but nothing throttles on it -- adaptive concurrency (e.g. shrinking `gather_bounded`'s limit as remaining quota drops) would be a real improvement for high-volume adapters like CrowdStrike, noted during that adapter's build but out of scope there
 
 ---
 

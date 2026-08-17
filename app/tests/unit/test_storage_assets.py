@@ -32,6 +32,10 @@ def mock_mongo(mocker):
 def store(mock_mongo):
     from app.storage.assets import AssetStore
 
+    # _indexes_created is a process-level guard (real createIndexes should only run once per
+    # process, not once per AssetStore() instantiation) -- reset it so each test deterministically
+    # observes index creation regardless of what ran earlier in the same pytest session.
+    AssetStore._indexes_created = False
     return AssetStore()
 
 
@@ -52,6 +56,7 @@ def sample_asset():
 def test_construction_creates_three_indexes(mock_mongo):
     from app.storage.assets import AssetStore
 
+    AssetStore._indexes_created = False
     AssetStore()
     assert mock_mongo["db"].assets.create_index.call_count == 3
 
@@ -65,8 +70,11 @@ def test_store_assets_happy_path(store, mock_mongo, sample_asset):
 
     assert result == {"nInserted": 1, "nModified": 0}
     mock_mongo["db"].assets.bulk_write.assert_called_once()
-    operations = mock_mongo["db"].assets.bulk_write.call_args.args[0]
-    assert len(operations) == 1
+    args, kwargs = mock_mongo["db"].assets.bulk_write.call_args
+    assert len(args[0]) == 1
+    # independent upserts (unique-indexed by asset_id+customer_id) -- out-of-order execution is
+    # safe and faster at scale, no correctness downside.
+    assert kwargs["ordered"] is False
 
 
 def test_store_assets_propagates_bulk_write_error(store, mock_mongo, sample_asset):
